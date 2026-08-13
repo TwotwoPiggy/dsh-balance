@@ -138,3 +138,10 @@ curl http://127.0.0.1:3080/plugins/dsh-query-balance/client.js   # 客户端 bun
   (`window.__ModuleLoader__.load({id, factory})`), 修改后**重启 dsh web** 生效
   (无 monorepo 构建链时不做 bundle 重哈希)。
 - 项目自带 `node_modules`(schemastery/zod), 与 profile 内同名依赖互不冲突。
+
+## 常见问题 (FAQ)
+
+**Q: 插件怎么知道查询的是哪个用户的余额数据？**
+
+A: 插件在向 DeepSeek 官方服务器发送查询请求时，会在请求头中携带您的 **API Key**（即 `sk-xxxx`）。因为每一个 API Key 在 DeepSeek 官方都是唯一绑定到您的账号上的，所以服务器通过识别这串凭证，就能精准返回您的账号真实余额。
+此外，本插件利用了 DSH 原生的凭据管理系统（Credentials），它会自动复用您平时用于聊天的 `DEEPSEEK_API_KEY`，所以您甚至不需要在插件里重复配置密钥，它就“聪明地”复用了您的身份去查余额了！
