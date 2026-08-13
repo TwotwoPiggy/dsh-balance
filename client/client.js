@@ -11,7 +11,7 @@
  * 用负 margin 把自己拉回同一行并右对齐 —— 与统计条同一行显示。
  */
 window.__ModuleLoader__.load({
-	id: "dsh-query-balance",
+	id: "dsh-balance",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
