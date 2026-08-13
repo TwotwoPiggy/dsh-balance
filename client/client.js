@@ -1,5 +1,5 @@
 /**
- * dsh-query-balance — browser half (lazy-CJS 客户端 bundle)。
+ * dsh-balance — browser half (lazy-CJS 客户端 bundle)。
  *
  * 在 `conversation.composer.dock`(输入框下方、命中率/输入输出 token 统计条所在行)
  * 注册一枚余额读数:
@@ -20,10 +20,10 @@ window.__ModuleLoader__.load({
 		let _ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 
 		//#region styles
-		const CSS_ID = "dsh-query-balance/styles.css";
+		const CSS_ID = "dsh-balance/styles.css";
 		if (typeof document !== "undefined" && document.querySelector('style[data-plugin-css="' + CSS_ID + '"]') === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "dsh-query-balance";
+			tag.dataset.plugin = "dsh-balance";
 			tag.dataset.pluginCss = CSS_ID;
 			tag.textContent = [
 				".dshqb_root{text-align:center;max-width:var(--dsh-chat-content-width);box-sizing:border-box;width:100%;padding:4px calc(var(--dsh-composer-side-clearance) + 16px) 0;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;margin:0 auto;font-size:12px;line-height:20px;display:block;overflow:hidden}",
@@ -321,12 +321,12 @@ window.__ModuleLoader__.load({
 		const inject = ["slots", "locale"];
 
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "query-balance: dictionaries");
+			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-balance: dictionaries");
 			// 等待 ui-conversation 声明 composer.dock 槽位后再注册本条目。
 			ctx.slots.inject("conversation.composer.dock", () => {
 				const dispose = ctx.slots.register({
 					name: "conversation.composer.dock",
-					id: "query-balance",
+					id: "dsh-balance",
 					order: 1,
 					locale: NS
 				}, BalanceReadout);
@@ -341,7 +341,7 @@ window.__ModuleLoader__.load({
 				};
 				document.addEventListener("visibilitychange", onVisibility);
 				return () => document.removeEventListener("visibilitychange", onVisibility);
-			}, "query-balance: visibility resume");
+			}, "dsh-balance: visibility resume");
 		}
 
 		exports.apply = apply;

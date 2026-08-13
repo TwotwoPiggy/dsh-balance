@@ -1,5 +1,5 @@
 /**
- * dsh-query-balance — server half.
+ * dsh-balance — server half.
  *
  * 1. 余额服务: 按 `refreshIntervalMs` 从 DeepSeek `/user/balance` 拉取余额并缓存,
  *    通过 HTTP 路由 `/query-balance` 提供给浏览器(浏览器只读缓存, 不打 DeepSeek)。
@@ -14,7 +14,7 @@
 import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 
-export const name = 'query-balance'
+export const name = 'dsh-balance'
 
 /** 每个模型每 100 万 token 的价格(以 `currency` 计价)。 */
 const ModelPrice = Schema.object({
@@ -264,7 +264,7 @@ export function apply(ctx, config) {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         consecutiveFailures++
-        if (consecutiveFailures === 1) ctx.logger.warn(`[query-balance] balance fetch failed: ${message}`)
+        if (consecutiveFailures === 1) ctx.logger.warn(`[dsh-balance] balance fetch failed: ${message}`)
         // 保留上次成功值(stale-while-error), 仅标记错误。
         cache = {
           state: cache.state === 'ok' ? 'ok' : 'error',
@@ -294,7 +294,7 @@ export function apply(ctx, config) {
     }
     timer = setTimeout(run, 1000)
     return () => clearTimeout(timer)
-  }, 'query-balance: refresh loop')
+  }, 'dsh-balance: refresh loop')
 
   // 可选 webServer: 提供浏览器读取的缓存端点(headless 组合不受影响)。
   ctx.inject(['webServer'], (webCtx) => {
@@ -336,7 +336,7 @@ export function apply(ctx, config) {
         })
         res.end(req.method === 'HEAD' ? undefined : body)
       },
-    }), 'query-balance: route')
+    }), 'dsh-balance: route')
   })
 
   // 可选 sessionProjections: 会话花费投影。

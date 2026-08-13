@@ -1,4 +1,4 @@
-# dsh-query-balance
+# dsh-balance
 
 DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/输入输出 token 统计条所在的同一行**, 实时显示:
 
