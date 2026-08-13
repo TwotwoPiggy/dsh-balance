@@ -40,42 +40,23 @@ DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/
 
 ## 安装
 
-### 方式一：使用 DSH CLI 自动安装与配置（最简单推荐）
+### 方式一：使用 DSH CLI 自动安装与配置（推荐）
 
 DeepSeek Harness 自带的插件管理命令可以为您**一键完成下载安装和修改配置文件**：
 
-在运行 DeepSeek Harness 的终端目录中，执行以下命令：
-
 ```sh
-dsh plugin add dsh-balance
+dsh plugin --profile web add dsh-balance
 ```
-*(注：如果您使用的是特定的 profile，例如 web，请加上参数：`dsh plugin --profile web add dsh-balance`)*
 
 执行完毕后，**重启 `dsh web` 即可生效。**
 
-### 方式二：手动通过 NPM 安装
-
-如果您想手动修改配置，可以通过 NPM 安装：
-
-```sh
-npm i dsh-balance
-```
-
-安装完成后，手动在您的 `cordis.yml` 或 `cordis.json` 配置文件中的 `plugins` 节点下启用该插件：
-
-```yaml
-plugins:
-  # 其他已有的插件...
-  dsh-balance: {}
-```
-
-### 方式三：让 AI 助手帮您安装
+### 方式二：让 AI 助手帮您安装
 
 如果您正在使用 Antigravity 等 AI 助手，直接复制以下提示词发给它：
 
 > 请帮我在当前环境中安装 `dsh-balance` 插件，将其配置写入到我的 `cordis.yml` 中并启用它。
 
-### 方式四：本地源码安装
+### 方式三：本地源码安装
 
 如果您下载了源码，可以通过以下命令进行本地链接安装：
 
@@ -85,12 +66,29 @@ dsh plugin --profile web add <本目录绝对路径>
 
 ---
 
-## 卸载
+## 升级
 
-同样可以使用 DSH CLI 一键卸载并自动清理配置文件：
+当插件发布新版本后，您可以通过以下命令升级到最新版本：
 
 ```sh
-dsh plugin remove dsh-balance
+dsh plugin --profile web remove dsh-balance
+pnpm store prune
+dsh plugin --profile web add dsh-balance@latest
+```
+
+> **为什么需要 `pnpm store prune`？**
+> pnpm 会在本地缓存已下载的包。如果不清除缓存，即使 NPM 上已经发布了新版本，
+> `dsh plugin add` 仍然可能安装到旧版本。执行 `pnpm store prune` 可以清除过期缓存，
+> 确保拉取到最新版本。
+
+---
+
+## 卸载
+
+使用 DSH CLI 一键卸载并自动清理配置文件：
+
+```sh
+dsh plugin --profile web remove dsh-balance
 ```
 
 ## 配置
