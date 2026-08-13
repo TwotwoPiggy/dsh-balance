@@ -7,7 +7,7 @@
 #       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(毫秒)
 - insert:
     - id: query-balance
-      name: dsh-query-balance
+      name: dsh-balance
       config:
         refreshIntervalMs: 300000
         clientPollIntervalMs: 30000
