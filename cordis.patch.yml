@@ -1,0 +1,13 @@
+# dsh-query-balance bundle 层: 一个插件行。
+# 安装: dsh plugin --profile web add <本目录>   (会自动应用本 patch 层)
+# 覆盖配置示例(写进 $DSH_HOME/profiles/web/cordis.patch.yml):
+#   - id: query-balance
+#     config:
+#       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(毫秒)
+#       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(毫秒)
+- insert:
+    - id: query-balance
+      name: dsh-query-balance
+      config:
+        refreshIntervalMs: 300000
+        clientPollIntervalMs: 30000
