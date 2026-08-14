@@ -2,12 +2,12 @@
 
 DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/输入输出 token 统计条所在的同一行**, 实时显示:
 
-- **账户余额**(如 `余额 ¥99.47`)
+- **账户余额与充足度状态指示灯**(如 `🟢 余额 ¥99.47`, 红/黄/绿三色直观反映余额充裕状况)
 - **本次对话的估算消耗**(如 `本会话约 ¥0.0007`, 按模型、按 DeepSeek 官方单价估算)
 - **`?` 图标**: 悬停显示当前配置的 DeepSeek 定价策略(按模型: 缓存命中/未命中/输出,
   每 1M token), 点击打开官方定价页 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing/>
 
-悬停读数可查看详情: 余额构成(赠送/充值)、余额是否可用、更新时间、刷新间隔、按模型分解的会话消耗与 token 明细。
+悬停读数可查看详情: 余额构成(赠送/充值)、余额充足度等级与可用状态、更新时间、刷新间隔、按模型分解的会话消耗与 token 明细。
 
 ![示例预览图](./assets/preview.png)
 
@@ -93,42 +93,109 @@ dsh plugin --profile web add dsh-balance@latest
 dsh plugin --profile web remove dsh-balance
 ```
 
-## 配置
+## 配置模板
 
-在 `$DSH_HOME/profiles/web/cordis.patch.yml` 中覆盖(整行替换, 需重述所有键):
+在 `$DSH_HOME/profiles/web/cordis.patch.yml`（或指定 profile 的 patch 文件）中覆盖配置。
+
+### 模板 1：标准国内人民币账户（默认开箱即用）
 
 ```yaml
-- id: query-balance
+- id: dsh-balance
   config:
-    apiKey: ''                    # 显式密钥; 留空走 credentials(DEEPSEEK_API_KEY)
-    apiKeyRef: DEEPSEEK_API_KEY   # credentials / 环境变量引用名
+    apiKey: ''                    # 留空自动复用 DEEPSEEK_API_KEY
+    apiKeyRef: DEEPSEEK_API_KEY
     baseUrl: https://api.deepseek.com
-    refreshIntervalMs: 300000     # 查询频率: 服务器向 DeepSeek 拉取余额的间隔(毫秒)
-    clientPollIntervalMs: 30000   # 浏览器刷新显示的间隔(毫秒)
-    timeoutMs: 8000               # 单次请求超时
-    currency: CNY                 # 花费估算计价货币(与 prices 一致)
-    prices:                       # 每 1M token 单价(按 currency 计价)
+    warningThreshold: 10          # 余额 < 10 元显示黄色预警灯
+    dangerThreshold: 5            # 余额 < 5 元显示红色告急灯
+    refreshIntervalMs: 300000     # 服务器向 DeepSeek 拉取余额的查询间隔(单位: 毫秒 ms，300000ms = 5分钟)
+    clientPollIntervalMs: 30000   # 浏览器从本地读取缓存的刷新间隔(单位: 毫秒 ms，30000ms = 30秒)
+    timeoutMs: 8000               # 单次网络请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
+    currency: CNY
+    prices:
       deepseek-chat: { cacheHit: 0.2, cacheMiss: 2, output: 8 }
       deepseek-reasoner: { cacheHit: 0.5, cacheMiss: 4, output: 16 }
-    defaultPrices: { cacheHit: 0.2, cacheMiss: 2, output: 8 }  # 未列出模型的回退价
+    defaultPrices: { cacheHit: 0.2, cacheMiss: 2, output: 8 }
 ```
 
-> 价格为公开参考价, 若官方调整请自行更新; 若余额为 USD, 请把 `currency` 与
-> `prices` 一并改为美元价。
+### 模板 2：海外美元账户（USD 计价与小额阈值）
+
+```yaml
+- id: dsh-balance
+  config:
+    apiKey: ''
+    apiKeyRef: DEEPSEEK_API_KEY
+    baseUrl: https://api.deepseek.com
+    warningThreshold: 2.0         # 余额 < $2.0 显示黄色预警
+    dangerThreshold: 0.5          # 余额 < $0.5 显示红色告急
+    refreshIntervalMs: 300000     # 服务器拉取余额间隔(单位: 毫秒 ms，300000ms = 5分钟)
+    clientPollIntervalMs: 30000   # 浏览器读取缓存间隔(单位: 毫秒 ms，30000ms = 30秒)
+    timeoutMs: 8000               # 请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
+    currency: USD                 # 计价货币切换为美元
+    prices:
+      deepseek-chat: { cacheHit: 0.028, cacheMiss: 0.28, output: 1.10 }
+      deepseek-reasoner: { cacheHit: 0.07, cacheMiss: 0.55, output: 2.19 }
+    defaultPrices: { cacheHit: 0.028, cacheMiss: 0.28, output: 1.10 }
+```
+
+### 模板 3：高频重度开发者（高缓冲安全档）
+
+```yaml
+- id: dsh-balance
+  config:
+    warningThreshold: 50          # 余额 < 50 元预警(留足多次长任务会话缓冲)
+    dangerThreshold: 10           # 余额 < 10 元告急
+```
+
+### 模板 4：开发测试隔离环境（Dev Profile · 独立 3081 端口）
+
+在 `$DSH_HOME/profiles/dev/cordis.patch.yml` 中：
+
+```yaml
+- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 3081                   # 固定测试环境跑在 3081 端口
+
+- id: dsh-balance
+  config:
+    warningThreshold: 10
+    dangerThreshold: 5
+```
+
+---
+
+## AI 助手提示词模板 (Prompt Templates)
+
+如果您正在使用 **Antigravity**、**Cursor** 或 **Claude** 等 AI 助手，可直接复制以下提示词发给它自动完成操作：
+
+### 📋 提示词 1：全新安装与默认启用
+> 请帮我在当前 DeepSeek Harness 环境中安装 `dsh-balance` 插件，将其默认配置写入到我的 `cordis.patch.yml` 中并确保已启用。
+
+### 📋 提示词 2：调整余额预警与告急阈值
+> 请帮我修改 `dsh-balance` 插件的配置，将告急阈值（红灯）设置为 10 元，预警阈值（黄灯）设置为 30 元。
+
+### 📋 提示词 3：切换为美元（USD）账户计价
+> 我的 DeepSeek 账户使用的是美元计价，请帮我将 `dsh-balance` 插件的货币单位切换为 `USD`，将阈值调整为预警 $2.0、告急 $0.5，并更新对应的每 1M Token 美元定价策略。
+
+### 📋 提示词 4：配置独立的 Dev 测试环境与端口隔离
+> 请帮我初始化一个 DSH `dev` Profile，将本地 `dsh-balance` 插件链接进去，并将 Web 端口固定为 `3081`，以便于我和日常使用的 3080 端口环境并行测试。
+
+---
 
 ## 验证
 
 ```sh
-node scripts/smoke-projection.mjs   # 投影折叠(替换语义/模型归属/计价)测试
-node scripts/smoke-client.mjs       # 客户端 bundle 注册与渲染冒烟测试
+npm test                         # 运行全部测试
+node test/smoke-projection.mjs   # 投影折叠(替换语义/模型归属/计价)测试
+node test/smoke-client.mjs       # 客户端 bundle 注册与渲染冒烟测试(零依赖)
 ```
 
 手工验证:
 
 ```sh
 curl http://127.0.0.1:3080/query-balance
-# → {"ok":true,...,"isAvailable":true,"balances":[{"currency":"CNY","total":99.74,...}]}
-curl http://127.0.0.1:3080/plugins/dsh-query-balance/client.js   # 客户端 bundle
+# → {"ok":true,...,"isAvailable":true,"thresholds":{"warning":10,"danger":5},"balances":[{"currency":"CNY","total":99.74,...}]}
+curl http://127.0.0.1:3080/plugins/dsh-balance/client.js   # 客户端 bundle
 ```
 
 ## 开发说明
@@ -138,6 +205,7 @@ curl http://127.0.0.1:3080/plugins/dsh-query-balance/client.js   # 客户端 bun
   (`window.__ModuleLoader__.load({id, factory})`), 修改后**重启 dsh web** 生效
   (无 monorepo 构建链时不做 bundle 重哈希)。
 - 项目自带 `node_modules`(schemastery/zod), 与 profile 内同名依赖互不冲突。
+- 本地测试: `test/` 目录下提供零依赖单元与冒烟测试，发布 npm 时自动排除测试目录。
 
 ## 常见问题 (FAQ)
 
@@ -145,3 +213,12 @@ curl http://127.0.0.1:3080/plugins/dsh-query-balance/client.js   # 客户端 bun
 
 A: 插件在向 DeepSeek 官方服务器发送查询请求时，会在请求头中携带您的 **API Key**（即 `sk-xxxx`）。因为每一个 API Key 在 DeepSeek 官方都是唯一绑定到您的账号上的，所以服务器通过识别这串凭证，就能精准返回您的账号真实余额。
 此外，本插件利用了 DSH 原生的凭据管理系统（Credentials），它会自动复用您平时用于聊天的 `DEEPSEEK_API_KEY`，所以您甚至不需要在插件里重复配置密钥，它就“聪明地”复用了您的身份去查余额了！
+
+**Q: 红黄绿状态指示灯的判断规则是什么？**
+
+A:
+* 🟢 **绿色（充足）**：余额 $\ge$ `warningThreshold`（默认 $\ge 10$ 元），账户额度充裕。
+* 🟡 **黄色（偏低）**：`dangerThreshold` $\le$ 余额 $<$ `warningThreshold`（默认 $5 \sim 10$ 元），提示余量不多，建议适时充值。
+* 🔴 **红色（告急）**：余额 $<$ `dangerThreshold`（默认 $< 5$ 元）或余额不可用/异常，警示当前任务可能中断。
+各阈值均可在配置文件中自由调节。
+

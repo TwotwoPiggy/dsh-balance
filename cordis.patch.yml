@@ -3,11 +3,15 @@
 # 覆盖配置示例(写进 $DSH_HOME/profiles/web/cordis.patch.yml):
 #   - id: dsh-balance
 #     config:
-#       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(毫秒)
-#       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(毫秒)
+#       warningThreshold: 10           # 余额预警阈值(低于此值显示黄色)
+#       dangerThreshold: 5             # 余额告急阈值(低于此值显示红色)
+#       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(单位: 毫秒 ms，120000ms = 2分钟)
+#       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(单位: 毫秒 ms，15000ms = 15秒)
 - insert:
     - id: dsh-balance
       name: dsh-balance
       config:
+        warningThreshold: 10
+        dangerThreshold: 5
         refreshIntervalMs: 300000
         clientPollIntervalMs: 30000

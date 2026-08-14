@@ -29,8 +29,12 @@ window.__ModuleLoader__.load({
 				".dshqb_root{text-align:center;max-width:var(--dsh-chat-content-width);box-sizing:border-box;width:100%;padding:4px calc(var(--dsh-composer-side-clearance) + 16px) 0;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;margin:0 auto;font-size:12px;line-height:20px;display:block;overflow:hidden}",
 				".dshqb_joined{margin-top:0;text-align:right}",
 				".dshqb_sep{color:var(--dsw-alias-separator-primary);margin:0 10px}",
-				".dshqb_amount{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}",
-				".dshqb_error{color:var(--dsw-alias-state-error-primary)}",
+				".dshqb_amount{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;display:inline-flex;align-items:center}",
+				".dshqb_error{color:var(--dsw-alias-state-error-primary);display:inline-flex;align-items:center}",
+				".dshqb_dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;flex-shrink:0;vertical-align:middle;transition:background-color .2s ease,box-shadow .2s ease}",
+				".dshqb_dot_success{background-color:var(--dsw-alias-state-success-primary,#10b981);box-shadow:0 0 0 2px rgba(16,185,129,0.2)}",
+				".dshqb_dot_warning{background-color:var(--dsw-alias-state-warning-primary,#f59e0b);box-shadow:0 0 0 2px rgba(245,158,11,0.2)}",
+				".dshqb_dot_danger{background-color:var(--dsw-alias-state-error-primary,#ef4444);box-shadow:0 0 0 2px rgba(239,68,68,0.2)}",
 				".dshqb_pricing{color:var(--dsw-alias-label-tertiary);vertical-align:-2px;display:inline-flex;align-items:center;margin-left:2px;padding:0 2px;border-radius:999px;text-decoration:none}",
 				".dshqb_pricing:hover{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover)}"
 			].join("\n");
@@ -62,6 +66,15 @@ window.__ModuleLoader__.load({
 			const num = Number(n);
 			if (!Number.isFinite(num)) return currencySymbol(currency) + "?";
 			return currencySymbol(currency) + (num % 1 === 0 ? String(num) : String(Math.round(num * 1000) / 1000));
+		}
+		/** 余额状态等级判定 (充足 success / 偏低 warning / 告急 danger) */
+		function getStatusLevel(total, isAvailable, thresholds) {
+			if (!isAvailable) return "danger";
+			const danger = typeof thresholds?.danger === "number" ? thresholds.danger : 5;
+			const warning = typeof thresholds?.warning === "number" ? thresholds.warning : 10;
+			if (total < danger) return "danger";
+			if (total < warning) return "warning";
+			return "success";
 		}
 		/** 官方定价页(用户可自行更换为目标语言页面)。 */
 		const PRICING_URL = "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/";
@@ -146,10 +159,13 @@ window.__ModuleLoader__.load({
 			"balance": "余额 {amount}",
 			"balanceError": "余额不可用",
 			"balanceMissing": "未配置 API Key",
+			"status.sufficient": "充足",
+			"status.warning": "偏低",
+			"status.danger": "告急",
 			"sessionCost": "本会话约 {amount}",
-			"tip.balance": "总额 {total} · 赠送 {granted} · 充值 {toppedUp}\n状态: {status}\n更新于 {time} · 每 {interval} 刷新",
-			"tip.statusAvailable": "余额可用",
-			"tip.statusUnavailable": "余额不足",
+			"tip.balance": "总额 {total} · 赠送 {granted} · 充值 {toppedUp}\n状态: {status} ({level})\n更新于 {time} · 每 {interval} 刷新",
+			"tip.statusAvailable": "可用",
+			"tip.statusUnavailable": "不足",
 			"tip.cost": "本会话消耗(估算): {amount}\n{models}\n输入 {input} tok · 输出 {output} tok",
 			"tip.costModel": "{model}: {amount}",
 			"tip.error": "获取失败: {error}",
@@ -165,8 +181,11 @@ window.__ModuleLoader__.load({
 			"balance": "Balance {amount}",
 			"balanceError": "Balance unavailable",
 			"balanceMissing": "API key not configured",
+			"status.sufficient": "Sufficient",
+			"status.warning": "Low",
+			"status.danger": "Critical",
 			"sessionCost": "~{amount} this session",
-			"tip.balance": "Total {total} · granted {granted} · topped up {toppedUp}\nStatus: {status}\nUpdated {time} · every {interval}",
+			"tip.balance": "Total {total} · granted {granted} · topped up {toppedUp}\nStatus: {status} ({level})\nUpdated {time} · every {interval}",
 			"tip.statusAvailable": "available",
 			"tip.statusUnavailable": "insufficient",
 			"tip.cost": "This session (est.): {amount}\n{models}\nInput {input} tok · Output {output} tok",
@@ -208,13 +227,20 @@ window.__ModuleLoader__.load({
 				if (info.ok === true && Array.isArray(info.balances) && info.balances.length > 0) {
 					const primary = info.balances[0];
 					const amount = formatMoney(primary.total, primary.currency);
-					groups.push(react.createElement("span", { className: "dshqb_amount", key: "bal" }, t("balance", { amount })));
+					const level = getStatusLevel(primary.total, info.isAvailable === true, info.thresholds);
+					const levelText = level === "success" ? t("status.sufficient") : level === "warning" ? t("status.warning") : t("status.danger");
+					const statusDot = react.createElement("span", {
+						className: "dshqb_dot dshqb_dot_" + level,
+						"aria-hidden": true
+					});
+					groups.push(react.createElement("span", { className: "dshqb_amount", key: "bal" }, statusDot, t("balance", { amount })));
 					const status = info.isAvailable === true ? t("tip.statusAvailable") : t("tip.statusUnavailable");
 					tooltipLines.push(t("tip.balance", {
 						total: formatMoney(primary.total, primary.currency),
 						granted: formatMoney(primary.granted, primary.currency),
 						toppedUp: formatMoney(primary.toppedUp, primary.currency),
 						status,
+						level: levelText,
 						time: formatClock(info.fetchedAt),
 						interval: formatInterval(info.refreshIntervalMs ?? DEFAULT_POLL_MS, t)
 					}));
@@ -223,11 +249,19 @@ window.__ModuleLoader__.load({
 					}
 				} else {
 					const message = info.error === "api-key-missing" ? t("balanceMissing") : t("balanceError");
-					groups.push(react.createElement("span", { className: "dshqb_error", key: "bal" }, message));
+					const statusDot = react.createElement("span", {
+						className: "dshqb_dot dshqb_dot_danger",
+						"aria-hidden": true
+					});
+					groups.push(react.createElement("span", { className: "dshqb_error", key: "bal" }, statusDot, message));
 					if (typeof info.error === "string") tooltipLines.push(t("tip.error", { error: info.error }));
 				}
 			} else if (balance.status === "error") {
-				groups.push(react.createElement("span", { className: "dshqb_error", key: "bal" }, t("balanceError")));
+				const statusDot = react.createElement("span", {
+					className: "dshqb_dot dshqb_dot_danger",
+					"aria-hidden": true
+				});
+				groups.push(react.createElement("span", { className: "dshqb_error", key: "bal" }, statusDot, t("balanceError")));
 				tooltipLines.push(t("tip.error", { error: balance.message }));
 			}
 

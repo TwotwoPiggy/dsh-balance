@@ -13,6 +13,9 @@
     "./client": "./client/client.js",
     "./package.json": "./package.json"
   },
+  "scripts": {
+    "test": "node test/smoke-projection.mjs && node test/smoke-client.mjs"
+  },
   "files": [
     "src",
     "client",

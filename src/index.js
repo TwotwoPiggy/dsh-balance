@@ -33,11 +33,11 @@ export const Config = Schema.object({
   apiKeyRef: Schema.string().default('DEEPSEEK_API_KEY'),
   /** DeepSeek API 基址 */
   baseUrl: Schema.string().default('https://api.deepseek.com'),
-  /** 服务器向 DeepSeek 查询余额的频率(毫秒) —— 真正的"查询频率" */
+  /** 服务器向 DeepSeek 查询余额的频率(单位: 毫秒 ms) —— 真正的"查询频率" */
   refreshIntervalMs: Schema.number().min(1000).default(300000),
-  /** 浏览器刷新显示读取缓存的频率(毫秒) */
+  /** 浏览器刷新显示读取缓存的频率(单位: 毫秒 ms) */
   clientPollIntervalMs: Schema.number().min(5000).default(30000),
-  /** 单次请求超时(毫秒) */
+  /** 单次请求超时时间(单位: 毫秒 ms) */
   timeoutMs: Schema.number().min(1000).default(8000),
   /** 花费估算的计价货币(与 prices 一致) */
   currency: Schema.string().default('CNY'),
@@ -46,6 +46,10 @@ export const Config = Schema.object({
     'deepseek-reasoner': { cacheHit: 1, cacheMiss: 4, output: 16 },
     'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 },
   }),
+  /** 余额预警阈值(低于此值显示黄色状态) */
+  warningThreshold: Schema.number().min(0).default(10),
+  /** 余额告急阈值(低于此值显示红色状态) */
+  dangerThreshold: Schema.number().min(0).default(5),
   /** 未列出的模型的回退单价 */
   defaultPrices: ModelPrice.default({ cacheHit: 0.1, cacheMiss: 1, output: 2 }),
 })
@@ -305,6 +309,10 @@ export function apply(ctx, config) {
         refreshIntervalMs: config.refreshIntervalMs,
         clientPollIntervalMs: config.clientPollIntervalMs,
         currency: config.currency,
+        thresholds: {
+          warning: config.warningThreshold,
+          danger: config.dangerThreshold,
+        },
         // 定价表随响应下发, 供客户端 "?" 图标展示
         prices: config.prices,
         defaultPrices: config.defaultPrices,

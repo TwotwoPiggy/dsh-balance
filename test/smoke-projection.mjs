@@ -1,7 +1,7 @@
 /**
  * 服务器端投影折叠逻辑测试: 验证 queryBalanceCost 单元的
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
- * 运行: node scripts/smoke-projection.mjs
+ * 运行: node test/smoke-projection.mjs
  */
 import { makeCostProjection } from '../src/index.js'
 import assert from 'node:assert/strict'
