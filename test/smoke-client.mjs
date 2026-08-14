@@ -143,6 +143,8 @@ globalThis.fetch = async () => ({
     isAvailable: mockIsAvailable,
     balances: [{ currency: 'CNY', total: mockBalanceTotal, granted: 0, toppedUp: mockBalanceTotal }],
     prices: {
+      'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 },
+      'deepseek-v4-pro': { cacheHit: 0.025, cacheMiss: 3, output: 6 },
       'deepseek-chat': { cacheHit: 0.2, cacheMiss: 2, output: 8 },
       'deepseek-reasoner': { cacheHit: 0.5, cacheMiss: 4, output: 16 },
     },
@@ -159,17 +161,28 @@ const props = {
       'status.warning': '偏低',
       'status.danger': '告急',
       'sessionCost': '本会话约 {amount}',
-      'tip.balance': '总额 {total} · 状态: {status} ({level})',
-      'tip.cost': '本会话消耗(估算): {amount}',
+      'card.balanceTitle': '📊 账户余额',
+      'card.sessionTitle': '⚡ 本会话消耗',
+      'card.total': '总额: ',
+      'card.topup': '充值 {amount}',
+      'card.granted': '赠送 {amount}',
+      'card.updated': '更新于 {time} · 每 {interval} 刷新',
+      'card.refreshHint': '💡 点击状态指示灯可立即手动刷新',
+      'card.tokens': 'Token: 输入 {input} · 输出 {output}',
+      'card.noCost': '本会话暂未产生消耗',
+      'card.pricingHint': '💡 计价规则与单价请见右侧 [?]',
+      'pricing.title': '📋 DeepSeek V4 定价参考',
+      'pricing.rateBadge': '每 1M tokens · {currency}',
+      'pricing.hit': '命中 {price}',
+      'pricing.miss': '未命中 {price}',
+      'pricing.output': '输出 {price}',
+      'pricing.link': '查看官方完整定价页 ›',
+      'pricing.aria': '查看 DeepSeek 定价策略',
       'tip.statusAvailable': '可用',
       'tip.statusUnavailable': '不足',
       'tip.error': '获取失败: {error}',
       'model.unknown': '未知模型',
       'model.other': '其他模型',
-      'tip.costModel': '{model}: {amount}',
-      'tip.pricing': 'DeepSeek 定价(每 1M token · {currency})\n{models}\n点击查看官方定价页',
-      'tip.pricingModel': '{model}: 命中 {hit} · 未命中 {miss} · 输出 {output}',
-      'pricing.aria': '查看 DeepSeek 定价策略',
       'unit.minutes': '{n} 分钟',
       'unit.seconds': '{n} 秒',
     }
@@ -193,12 +206,25 @@ const htmlGreen = renderToStaticMarkup(ReactMock.createElement(Comp, props))
 console.log('rendered (green):', htmlGreen)
 if (!htmlGreen.includes('100.23')) throw new Error('balance not rendered')
 if (!htmlGreen.includes('dshqb_dot_success')) throw new Error('green status dot missing')
+if (!htmlGreen.includes('dshqb_dot_btn')) throw new Error('status button class missing')
+if (!htmlGreen.includes('<button')) throw new Error('status button element missing')
+if (!htmlGreen.includes('dshqb_trigger')) throw new Error('trigger container missing')
+if (!htmlGreen.includes('dshqb_popover')) throw new Error('popover container missing')
+if (!htmlGreen.includes('dshqb_col')) throw new Error('dual column missing')
+if (!htmlGreen.includes('dshqb_vsep')) throw new Error('vertical separator missing')
+if (!htmlGreen.includes('📊 账户余额')) throw new Error('balance title missing')
+if (!htmlGreen.includes('⚡ 本会话消耗')) throw new Error('session title missing')
 if (!htmlGreen.includes('本会话约')) throw new Error('cost not rendered')
-if (!htmlGreen.includes('查看 DeepSeek 定价策略')) throw new Error('pricing anchor missing')
-if (!htmlGreen.includes('>?</')) throw new Error('question icon missing')
-if (!htmlGreen.includes('deepseek-chat: 命中 ¥0.2 · 未命中 ¥2 · 输出 ¥8')) throw new Error('pricing table missing')
-if (!htmlGreen.includes('deepseek-reasoner: 命中 ¥0.5 · 未命中 ¥4 · 输出 ¥16')) throw new Error('reasoner pricing missing')
-if (!htmlGreen.includes('其他模型: 命中 ¥0.2 · 未命中 ¥2 · 输出 ¥8')) throw new Error('fallback pricing missing')
+if (!htmlGreen.includes('dshqb_pricing_wrap')) throw new Error('pricing wrap missing')
+if (!htmlGreen.includes('dshqb_pricing_popover')) throw new Error('pricing popover missing')
+if (!htmlGreen.includes('📋 DeepSeek V4 定价参考')) throw new Error('v4 pricing title missing')
+if (!htmlGreen.includes('deepseek-v4-flash')) throw new Error('v4 flash model missing')
+if (!htmlGreen.includes('deepseek-v4-pro')) throw new Error('v4 pro model missing')
+if (!htmlGreen.includes('命中 ¥0.02')) throw new Error('v4 hit rate missing')
+if (!htmlGreen.includes('未命中 ¥0.1')) throw new Error('v4 miss rate missing')
+if (!htmlGreen.includes('输出 ¥0.2')) throw new Error('v4 output rate missing')
+// 验证非 V4 模型被成功过滤不展示在定价气泡中
+if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"')) throw new Error('non-v4 model should be filtered out')
 
 console.log('CLIENT SMOKE TEST PASSED (ZERO-DEPENDENCY)')
 process.exit(0)

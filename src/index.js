@@ -42,9 +42,10 @@ export const Config = Schema.object({
   /** 花费估算的计价货币(与 prices 一致) */
   currency: Schema.string().default('CNY'),
   prices: Schema.dict(ModelPrice).default({
+    'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 1, output: 2 },
+    'deepseek-v4-pro': { cacheHit: 0.025, cacheMiss: 3, output: 6 },
     'deepseek-chat': { cacheHit: 0.1, cacheMiss: 1, output: 2 },
     'deepseek-reasoner': { cacheHit: 1, cacheMiss: 4, output: 16 },
-    'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 },
   }),
   /** 余额预警阈值(低于此值显示黄色状态) */
   warningThreshold: Schema.number().min(0).default(10),
@@ -53,6 +54,37 @@ export const Config = Schema.object({
   /** 未列出的模型的回退单价 */
   defaultPrices: ModelPrice.default({ cacheHit: 0.1, cacheMiss: 1, output: 2 }),
 })
+
+/** 实时计算指定模型在指定时间戳下的单价(内置 DeepSeek V4 8月17日谷峰费率自动切换规则) */
+export const resolveModelPrice = (config, model, timestamp = Date.now()) => {
+  const isV4Flash = model === 'deepseek-v4-flash'
+  const isV4Pro = model === 'deepseek-v4-pro'
+
+  if (!isV4Flash && !isV4Pro) {
+    return config.prices[model] ?? config.defaultPrices
+  }
+
+  // 2026-08-17T00:00:00+08:00 (北京时间 8月17日 00:00)
+  const isAfterCutoff = timestamp >= 1786896000000
+
+  if (!isAfterCutoff) {
+    if (isV4Flash) return { cacheHit: 0.02, cacheMiss: 1, output: 2 }
+    if (isV4Pro) return { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+  }
+
+  const d = new Date(timestamp)
+  const hourBJT = (d.getUTCHours() + 8) % 24
+  const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+
+  if (isPeak) {
+    if (isV4Flash) return { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
+    if (isV4Pro) return { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
+  } else {
+    if (isV4Flash) return { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
+    if (isV4Pro) return { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
+  }
+  return config.defaultPrices
+}
 
 /** 归一化 DeepSeek 余额响应中的金额字符串。 */
 const toAmount = (value) => {
@@ -95,36 +127,7 @@ export const makeCostProjection = (config) => {
     cacheWriteTokens: a.cacheWriteTokens - b.cacheWriteTokens,
     outputTokens: a.outputTokens - b.outputTokens,
   })
-  const priceOf = (model) => {
-    const isV4Flash = model === 'deepseek-v4-flash'
-    const isV4Pro = model === 'deepseek-v4-pro'
-
-    if (!isV4Flash && !isV4Pro) {
-      return config.prices[model] ?? config.defaultPrices
-    }
-
-    const timestamp = Date.now()
-    // 2026-08-17T00:00:00+08:00
-    const isAfterCutoff = timestamp >= 1786896000000
-
-    if (!isAfterCutoff) {
-      if (isV4Flash) return { cacheHit: 0.02, cacheMiss: 1, output: 2 }
-      if (isV4Pro) return { cacheHit: 0.025, cacheMiss: 3, output: 6 }
-    }
-
-    const d = new Date(timestamp)
-    const hourBJT = (d.getUTCHours() + 8) % 24
-    const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
-
-    if (isPeak) {
-      if (isV4Flash) return { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
-      if (isV4Pro) return { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
-    } else {
-      if (isV4Flash) return { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
-      if (isV4Pro) return { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
-    }
-    return config.defaultPrices
-  }
+  const priceOf = (model) => resolveModelPrice(config, model)
   const round6 = (n) => Math.round(n * 1e6) / 1e6
 
   return {
@@ -313,8 +316,12 @@ export function apply(ctx, config) {
           warning: config.warningThreshold,
           danger: config.dangerThreshold,
         },
-        // 定价表随响应下发, 供客户端 "?" 图标展示
-        prices: config.prices,
+        // 定价表随响应动态下发 (内置 8月17日谷峰费率自动切换规则), 供客户端 "?" 图标展示
+        prices: {
+          ...config.prices,
+          'deepseek-v4-flash': resolveModelPrice(config, 'deepseek-v4-flash'),
+          'deepseek-v4-pro': resolveModelPrice(config, 'deepseek-v4-pro'),
+        },
         defaultPrices: config.defaultPrices,
       }
       if (cache.state === 'ok') {
@@ -330,11 +337,20 @@ export function apply(ctx, config) {
     webCtx.effect(() => webCtx.webServer.register({
       kind: 'exact',
       path: '/query-balance',
-      handler(req, res) {
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          res.writeHead(405, { Allow: 'GET, HEAD' })
+      async handler(req, res) {
+        if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'POST') {
+          res.writeHead(405, { Allow: 'GET, HEAD, POST' })
           res.end()
           return
+        }
+        const parsedUrl = new URL(req.url ?? '/', 'http://127.0.0.1')
+        const force = parsedUrl.searchParams.get('force') === '1' || parsedUrl.searchParams.get('force') === 'true' || req.method === 'POST'
+        if (force) {
+          // 冷却防刷保护: 距离上次主动拉取至少间隔 2000ms
+          const now = Date.now()
+          if (now - cache.fetchedAt > 2000 || cache.state !== 'ok') {
+            await refresh()
+          }
         }
         const body = JSON.stringify(serialize())
         res.writeHead(200, {

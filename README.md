@@ -2,12 +2,14 @@
 
 DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/输入输出 token 统计条所在的同一行**, 实时显示:
 
-- **账户余额与充足度状态指示灯**(如 `🟢 余额 ¥99.47`, 红/黄/绿三色直观反映余额充裕状况)
-- **本次对话的估算消耗**(如 `本会话约 ¥0.0007`, 按模型、按 DeepSeek 官方单价估算)
-- **`?` 图标**: 悬停显示当前配置的 DeepSeek 定价策略(按模型: 缓存命中/未命中/输出,
-  每 1M token), 点击打开官方定价页 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing/>
+- **账户余额与充足度状态指示灯**(如 `🟢 余额 ¥97.69`, 红/黄/绿三色直观反映余额充裕状况，**点击状态圆点可直接手动强刷查询最新余额**)
+- **本次对话的估算消耗**(如 `本会话约 ¥3.92`, 按模型、按 DeepSeek 官方单价估算)
+- **`?` 定价参考图标**: 悬停以 `?` 为中心优雅浮现 **DeepSeek V4 系列专属定价微卡片**（支持 `deepseek-v4-flash` 与 `deepseek-v4-pro`），点击直达官方定价页 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing/>
 
-悬停读数可查看详情: 余额构成(赠送/充值)、余额充足度等级与可用状态、更新时间、刷新间隔、按模型分解的会话消耗与 token 明细。
+悬停读数可查看**左右双栏毛玻璃卡片**：
+- **左栏【📊 账户余额】**：实时大字总额、充足度 Badge、充值与赠送金额构成、5分钟自动刷新时间戳以及点击指示灯强刷指引。
+- **右栏【⚡ 本会话消耗】**：当前会话预估总花费、按模型细分明细（如 `• deepseek-v4-flash: ¥3.92`）、输入与输出 Token 吞吐统计。
+- **时间感知引擎**：内置 2026 年 8 月 17 日起 DeepSeek 谷峰计费自动切换机制（09:00~12:00, 14:00~18:00 峰时 / 其他时段 5 折谷时），全自动无缝同步。
 
 ![示例预览图](./assets/preview.png)
 
@@ -17,28 +19,28 @@ DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/
 ┌─────────────┐  按 refreshIntervalMs 轮询   ┌──────────────────┐
 │ DeepSeek API│◀────────────────────────────│ 服务器插件(host)  │
 │ /user/balance│                            │ · 余额缓存(带陈旧回退)│
-└─────────────┘                            │ · /query-balance 路由│
-                                           │ · queryBalanceCost  │
-                                           │   会话花费投影(按模型)│
-                                           └────────┬───────────┘
-                                                    │ 只读缓存 / 投影推送帧
-                                           ┌────────▼───────────┐
-                                           │ 浏览器插件(client)   │
-                                           │ · conversation.     │
-                                           │   composer.dock 条目 │
-                                           │ · 单例轮询器(页面隐藏 │
-                                           │   时暂停)            │
-                                           └────────────────────┘
+│             │  ?force=1 手动强刷路由       │ · /query-balance 路由│
+└─────────────┘                             │ · queryBalanceCost  │
+                                            │   会话花费投影(含V4谷峰)│
+                                            └────────┬───────────┘
+                                                     │ 只读缓存 / 投影推送帧
+                                            ┌────────▼───────────┐
+                                            │ 浏览器插件(client)   │
+                                            │ · 双栏悬停卡片      │
+                                            │ · 点击指示灯手动强刷  │
+                                            │ · 单例轮询器(页面隐藏 │
+                                            │   时暂停)            │
+                                            └────────────────────┘
 ```
 
 - **性能**: 浏览器只读本地缓存(每 `clientPollIntervalMs` 一次极小 JSON), 不直接访问 DeepSeek;
   服务器按 `refreshIntervalMs` 拉取并缓存(失败保留上次成功值); 花费由投影折叠计算
   (与 dsh-token-meter 相同的 O(1) 状态机, 同引用事件零开销), 随既有 `session/projection`
-  推送帧实时到达客户端, 无额外请求。
+  推送帧实时到达客户端, 无额外网络请求。
+- **手动强刷**: 点击状态指示灯按钮可直接穿透缓存向 DeepSeek 官方发起实时查询，服务端内置 2000ms 冷却防刷保护。
 - **密钥**: 复用 Harness 的 credentials 能力(`ctx.credentials`), 默认引用
   `DEEPSEEK_API_KEY`(即 `$DSH_HOME/.credentials.yaml` 或进程环境), 无需在配置里写密钥。
-- **同行动态布局**: 组件实测统计条兄弟节点的高度, 用负 margin 精确拉回同一行并右对齐;
-  统计条不存在(空白会话)时自动退化为独立的一行, 统计条出现后自动归位。
+- **同行动态布局**: 组件全 Flex 居中对齐，与输入框底部统计条完美处于绝对水平中线。
 
 ## 安装
 
@@ -97,7 +99,7 @@ dsh plugin --profile web remove dsh-balance
 
 在 `$DSH_HOME/profiles/web/cordis.patch.yml`（或指定 profile 的 patch 文件）中覆盖配置。
 
-### 模板 1：标准国内人民币账户（默认开箱即用）
+### 模板 1：标准国内人民币账户（默认开箱即用 · 包含 DeepSeek V4 系列）
 
 ```yaml
 - id: dsh-balance
@@ -112,9 +114,11 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 单次网络请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: CNY
     prices:
-      deepseek-chat: { cacheHit: 0.2, cacheMiss: 2, output: 8 }
-      deepseek-reasoner: { cacheHit: 0.5, cacheMiss: 4, output: 16 }
-    defaultPrices: { cacheHit: 0.2, cacheMiss: 2, output: 8 }
+      deepseek-v4-flash: { cacheHit: 0.02, cacheMiss: 1, output: 2 }
+      deepseek-v4-pro: { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+      deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
+      deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
+    defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
 ```
 
 ### 模板 2：海外美元账户（USD 计价与小额阈值）
@@ -132,9 +136,11 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: USD                 # 计价货币切换为美元
     prices:
-      deepseek-chat: { cacheHit: 0.028, cacheMiss: 0.28, output: 1.10 }
-      deepseek-reasoner: { cacheHit: 0.07, cacheMiss: 0.55, output: 2.19 }
-    defaultPrices: { cacheHit: 0.028, cacheMiss: 0.28, output: 1.10 }
+      deepseek-v4-flash: { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 }
+      deepseek-v4-pro: { cacheHit: 0.0035, cacheMiss: 0.42, output: 0.84 }
+      deepseek-chat: { cacheHit: 0.014, cacheMiss: 0.14, output: 0.28 }
+      deepseek-reasoner: { cacheHit: 0.14, cacheMiss: 0.55, output: 2.19 }
+    defaultPrices: { cacheHit: 0.014, cacheMiss: 0.14, output: 0.28 }
 ```
 
 ### 模板 3：高频重度开发者（高缓冲安全档）
@@ -221,4 +227,9 @@ A:
 * 🟡 **黄色（偏低）**：`dangerThreshold` $\le$ 余额 $<$ `warningThreshold`（默认 $5 \sim 10$ 元），提示余量不多，建议适时充值。
 * 🔴 **红色（告急）**：余额 $<$ `dangerThreshold`（默认 $< 5$ 元）或余额不可用/异常，警示当前任务可能中断。
 各阈值均可在配置文件中自由调节。
+
+**Q: 8月17日 DeepSeek 官方更新谷峰定价后，插件会自动同步吗？**
+
+A: **完全会自动同步！** 插件内部已植入时间感知计费引擎（`resolveModelPrice`）。当时间进入北京时间 2026年8月17日 00:00 后，插件会在会话发生 Token 扣费估算和展示 `?` 定价卡片时，自动识别当前处于 **☀️ 峰时（09:00~12:00, 14:00~18:00）** 还是 **🌙 谷时（其他时段享5折特惠）**，全自动精准折算与显示，无需人工重启或修改任何配置。
+
 
