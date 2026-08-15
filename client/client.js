@@ -217,7 +217,8 @@ window.__ModuleLoader__.load({
 			"card.granted": "赠送 {amount}",
 			"card.updated": "更新于 {time} · 每 {interval} 刷新",
 			"card.refreshHint": "💡 点击状态指示灯可立即手动刷新",
-			"card.tokens": "Token: 输入 {input} · 输出 {output}",
+			"card.tokens": "Token: 输入 {input} (命中 {hit} · {hitRate}%) · 输出 {output}",
+			"card.tokensNoHit": "Token: 输入 {input} · 输出 {output}",
 			"card.noCost": "本会话暂未产生消耗",
 			"card.pricingHint": "💡 计价规则与单价请见右侧 [?]",
 			"card.error": "【账户余额】异常: {error}",
@@ -249,10 +250,11 @@ window.__ModuleLoader__.load({
 			"card.topup": "Topped up {amount}",
 			"card.granted": "Granted {amount}",
 			"card.updated": "Updated {time} · Every {interval}",
-			"card.refreshHint": "💡 Click status dot to refresh",
-			"card.tokens": "Tokens: In {input} · Out {output}",
-			"card.noCost": "No tokens consumed yet",
-			"card.pricingHint": "💡 View pricing rules via [?] icon",
+			"card.refreshHint": "💡 Click status dot to refresh instantly",
+			"card.tokens": "Tokens: In {input} ({hit} hit · {hitRate}%) · Out {output}",
+			"card.tokensNoHit": "Tokens: In {input} · Out {output}",
+			"card.noCost": "No cost in this session yet",
+			"card.pricingHint": "💡 View pricing & rates via [?]",
 			"card.error": "【Account Balance】Error: {error}",
 			"pricing.title": "📋 DeepSeek V4 Pricing",
 			"pricing.rateBadge": "Per 1M tokens · {currency}",
@@ -387,10 +389,24 @@ window.__ModuleLoader__.load({
 					: react.createElement("div", { className: "dshqb_card_sub", key: "models" }, t("card.noCost")),
 				react.createElement("div", { className: "dshqb_card_hint", key: "hint" }, [
 					hasCost
-						? react.createElement("div", { key: "tok" }, t("card.tokens", {
-							input: formatTokens(cost.tokens.uncachedInput + cost.tokens.cacheRead + cost.tokens.cacheWrite),
-							output: formatTokens(cost.tokens.output)
-						}))
+						? (() => {
+							const totalInput = (cost.tokens?.uncachedInput ?? 0) + (cost.tokens?.cacheRead ?? 0) + (cost.tokens?.cacheWrite ?? 0);
+							const cacheHit = cost.tokens?.cacheRead ?? 0;
+							const hitRate = totalInput > 0 ? (cacheHit / totalInput * 100).toFixed(1) : "0.0";
+							return react.createElement("div", { key: "tok" },
+								cacheHit > 0
+									? t("card.tokens", {
+										input: formatTokens(totalInput),
+										hit: formatTokens(cacheHit),
+										hitRate,
+										output: formatTokens(cost.tokens?.output ?? 0)
+									})
+									: t("card.tokensNoHit", {
+										input: formatTokens(totalInput),
+										output: formatTokens(cost.tokens?.output ?? 0)
+									})
+							);
+						})()
 						: null,
 					react.createElement("div", { key: "tip" }, t("card.pricingHint"))
 				])

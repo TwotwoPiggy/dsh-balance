@@ -141,7 +141,7 @@ body {
         </li>
       </ul>
       <div class="dshqb_card_hint">
-        <div>Token: 输入 124M · 输出 301K</div>
+        <div>Token: 输入 124M (命中 118M · 95.2%) · 输出 301K</div>
         <div>💡 计价规则与单价请见右侧 [?]</div>
       </div>
     </div>
