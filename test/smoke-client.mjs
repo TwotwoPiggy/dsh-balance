@@ -179,6 +179,9 @@ const props = {
       'pricing.output': '输出 {price}',
       'pricing.link': '查看官方完整定价页 ›',
       'pricing.aria': '查看 DeepSeek 定价策略',
+      'btn.settings': '插件设置',
+      'card.openSettings': '⚙️ 打开偏好设置',
+      'settings.title': '⚙️ 余额插件设置',
       'tip.statusAvailable': '可用',
       'tip.statusUnavailable': '不足',
       'tip.error': '获取失败: {error}',
@@ -215,6 +218,8 @@ if (!htmlGreen.includes('dshqb_col')) throw new Error('dual column missing')
 if (!htmlGreen.includes('dshqb_vsep')) throw new Error('vertical separator missing')
 if (!htmlGreen.includes('📊 账户余额')) throw new Error('balance title missing')
 if (!htmlGreen.includes('⚡ 本会话消耗')) throw new Error('session title missing')
+if (!htmlGreen.includes('dshqb_card_settings_link')) throw new Error('settings link in card missing')
+if (!htmlGreen.includes('⚙️ 打开偏好设置')) throw new Error('settings link text missing')
 if (!htmlGreen.includes('dshqb_card_tokens')) throw new Error('tokens container class missing')
 if (!htmlGreen.includes('dshqb_card_hit')) throw new Error('hit container class missing')
 if (!htmlGreen.includes('命中: 60')) throw new Error('hit token count missing')
@@ -229,5 +234,11 @@ if (!htmlGreen.includes('输出 ¥0.2')) throw new Error('v4 output rate missing
 // 验证非 V4 模型被成功过滤不展示在定价气泡中
 if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"')) throw new Error('non-v4 model should be filtered out')
 
+// 验证设置按钮存在
+if (!htmlGreen.includes('title="插件设置"')) throw new Error('settings button title missing')
+if (!htmlGreen.includes('aria-label="插件设置"')) throw new Error('settings button aria-label missing')
+if (!htmlGreen.includes('<svg')) throw new Error('gear svg icon missing')
+
 console.log('CLIENT SMOKE TEST PASSED (ZERO-DEPENDENCY)')
 process.exit(0)
+
