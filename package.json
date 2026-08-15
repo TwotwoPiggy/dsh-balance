@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框下方的统计条(命中率/输入输出 token 行)实时显示账户余额与本次对话的估算消耗",
   "repository": {
     "type": "git",

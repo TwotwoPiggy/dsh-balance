@@ -63,7 +63,9 @@ body {
 .dshqb_card_sub{font-size:11px;color:#9ca3af;display:flex;gap:8px}
 .dshqb_card_models{margin:4px 0 0;padding:0;list-style:none;font-size:11px;color:#9ca3af;display:flex;flex-direction:column;gap:2px}
 .dshqb_card_models li{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
-.dshqb_card_hint{font-size:11px;color:#6b7280;margin-top:auto;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.08)}
+.dshqb_card_hint{font-size:10.5px;color:#6b7280;margin-top:auto;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:3px}
+.dshqb_card_tokens{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:#9ca3af;line-height:1.35}
+.dshqb_card_hit{font-size:10px;color:#6b7280;opacity:0.9}
 
 .dshqb_pricing_popover{
   position:relative;
@@ -141,7 +143,10 @@ body {
         </li>
       </ul>
       <div class="dshqb_card_hint">
-        <div>Token: 输入 124M (命中 118M · 95.2%) · 输出 301K</div>
+        <div class="dshqb_card_tokens">
+          <div>Token: 输入 124M · 输出 301K</div>
+          <div class="dshqb_card_hit">命中: 123M (99.3%)</div>
+        </div>
         <div>💡 计价规则与单价请见右侧 [?]</div>
       </div>
     </div>

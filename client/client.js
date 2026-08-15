@@ -57,7 +57,9 @@ window.__ModuleLoader__.load({
 				".dshqb_card_sub{font-size:11px;color:var(--dsw-alias-label-tertiary,#9ca3af);display:flex;gap:8px}",
 				".dshqb_card_models{margin:4px 0 0;padding:0;list-style:none;font-size:11px;color:var(--dsw-alias-label-secondary,#9ca3af);display:flex;flex-direction:column;gap:2px}",
 				".dshqb_card_models li{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}",
-				".dshqb_card_hint{font-size:11px;color:var(--dsw-alias-label-tertiary,#6b7280);margin-top:auto;padding-top:6px;border-top:1px dashed var(--dsw-alias-separator-primary,rgba(255,255,255,0.08))}",
+				".dshqb_card_hint{font-size:10.5px;color:var(--dsw-alias-label-tertiary,#6b7280);margin-top:auto;padding-top:6px;border-top:1px dashed var(--dsw-alias-separator-primary,rgba(255,255,255,0.08));display:flex;flex-direction:column;gap:3px}",
+				".dshqb_card_tokens{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--dsw-alias-label-secondary,#9ca3af);line-height:1.35}",
+				".dshqb_card_hit{font-size:10px;color:var(--dsw-alias-label-tertiary,#6b7280);opacity:0.9}",
 				".dshqb_pricing_wrap{position:relative;display:inline-flex;align-items:center}",
 				".dshqb_pricing{color:var(--dsw-alias-label-tertiary);display:inline-flex;align-items:center;justify-content:center;padding:0 2px;border-radius:999px;text-decoration:none;line-height:1}",
 				".dshqb_pricing svg{display:block}",
@@ -217,8 +219,8 @@ window.__ModuleLoader__.load({
 			"card.granted": "赠送 {amount}",
 			"card.updated": "更新于 {time} · 每 {interval} 刷新",
 			"card.refreshHint": "💡 点击状态指示灯可立即手动刷新",
-			"card.tokens": "Token: 输入 {input} (命中 {hit} · {hitRate}%) · 输出 {output}",
-			"card.tokensNoHit": "Token: 输入 {input} · 输出 {output}",
+			"card.tokens": "Token: 输入 {input} · 输出 {output}",
+			"card.tokensHit": "命中: {hit} ({hitRate}%)",
 			"card.noCost": "本会话暂未产生消耗",
 			"card.pricingHint": "💡 计价规则与单价请见右侧 [?]",
 			"card.error": "【账户余额】异常: {error}",
@@ -251,8 +253,8 @@ window.__ModuleLoader__.load({
 			"card.granted": "Granted {amount}",
 			"card.updated": "Updated {time} · Every {interval}",
 			"card.refreshHint": "💡 Click status dot to refresh instantly",
-			"card.tokens": "Tokens: In {input} ({hit} hit · {hitRate}%) · Out {output}",
-			"card.tokensNoHit": "Tokens: In {input} · Out {output}",
+			"card.tokens": "Tokens: In {input} · Out {output}",
+			"card.tokensHit": "Cache hit: {hit} ({hitRate}%)",
 			"card.noCost": "No cost in this session yet",
 			"card.pricingHint": "💡 View pricing & rates via [?]",
 			"card.error": "【Account Balance】Error: {error}",
@@ -393,19 +395,18 @@ window.__ModuleLoader__.load({
 							const totalInput = (cost.tokens?.uncachedInput ?? 0) + (cost.tokens?.cacheRead ?? 0) + (cost.tokens?.cacheWrite ?? 0);
 							const cacheHit = cost.tokens?.cacheRead ?? 0;
 							const hitRate = totalInput > 0 ? (cacheHit / totalInput * 100).toFixed(1) : "0.0";
-							return react.createElement("div", { key: "tok" },
+							return react.createElement("div", { className: "dshqb_card_tokens", key: "tok" }, [
+								react.createElement("div", { key: "main" }, t("card.tokens", {
+									input: formatTokens(totalInput),
+									output: formatTokens(cost.tokens?.output ?? 0)
+								})),
 								cacheHit > 0
-									? t("card.tokens", {
-										input: formatTokens(totalInput),
+									? react.createElement("div", { className: "dshqb_card_hit", key: "hit" }, t("card.tokensHit", {
 										hit: formatTokens(cacheHit),
-										hitRate,
-										output: formatTokens(cost.tokens?.output ?? 0)
-									})
-									: t("card.tokensNoHit", {
-										input: formatTokens(totalInput),
-										output: formatTokens(cost.tokens?.output ?? 0)
-									})
-							);
+										hitRate
+									}))
+									: null
+							]);
 						})()
 						: null,
 					react.createElement("div", { key: "tip" }, t("card.pricingHint"))

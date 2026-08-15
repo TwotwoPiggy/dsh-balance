@@ -168,8 +168,8 @@ const props = {
       'card.granted': '赠送 {amount}',
       'card.updated': '更新于 {time} · 每 {interval} 刷新',
       'card.refreshHint': '💡 点击状态指示灯可立即手动刷新',
-      'card.tokens': 'Token: 输入 {input} (命中 {hit} · {hitRate}%) · 输出 {output}',
-      'card.tokensNoHit': 'Token: 输入 {input} · 输出 {output}',
+      'card.tokens': 'Token: 输入 {input} · 输出 {output}',
+      'card.tokensHit': '命中: {hit} ({hitRate}%)',
       'card.noCost': '本会话暂未产生消耗',
       'card.pricingHint': '💡 计价规则与单价请见右侧 [?]',
       'pricing.title': '📋 DeepSeek V4 定价参考',
@@ -215,8 +215,9 @@ if (!htmlGreen.includes('dshqb_col')) throw new Error('dual column missing')
 if (!htmlGreen.includes('dshqb_vsep')) throw new Error('vertical separator missing')
 if (!htmlGreen.includes('📊 账户余额')) throw new Error('balance title missing')
 if (!htmlGreen.includes('⚡ 本会话消耗')) throw new Error('session title missing')
-if (!htmlGreen.includes('本会话约')) throw new Error('cost not rendered')
-if (!htmlGreen.includes('命中 60')) throw new Error('hit token count missing')
+if (!htmlGreen.includes('dshqb_card_tokens')) throw new Error('tokens container class missing')
+if (!htmlGreen.includes('dshqb_card_hit')) throw new Error('hit container class missing')
+if (!htmlGreen.includes('命中: 60')) throw new Error('hit token count missing')
 if (!htmlGreen.includes('dshqb_pricing_wrap')) throw new Error('pricing wrap missing')
 if (!htmlGreen.includes('dshqb_pricing_popover')) throw new Error('pricing popover missing')
 if (!htmlGreen.includes('📋 DeepSeek V4 定价参考')) throw new Error('v4 pricing title missing')
