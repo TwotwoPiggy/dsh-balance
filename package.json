@@ -16,7 +16,12 @@
   "scripts": {
     "test": "node test/smoke-projection.mjs && node test/smoke-config-api.mjs && node test/smoke-client.mjs",
     "test:lite": "node packages/lite/test/smoke-projection.mjs && node packages/lite/test/smoke-client.mjs",
-    "test:all": "npm test && npm run test:lite"
+    "test:all": "npm test && npm run test:lite",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version": "npm run version:sync && git add packages/lite/package.json",
+    "publish:lite": "node scripts/publish-lite.mjs",
+    "publish:main": "npm publish --access public",
+    "publish:all": "npm run test:all && npm run publish:main && npm run publish:lite"
   },
   "files": [
     "src",

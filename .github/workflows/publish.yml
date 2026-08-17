@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  publish:
+  test-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,7 +25,15 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Publish to NPM
+      - name: Run Full Test Suite (Full + Lite)
+        run: npm run test:all
+
+      - name: Publish dsh-balance (Full)
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish dsh-balance-lite (Lite)
+        run: node scripts/publish-lite.mjs --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

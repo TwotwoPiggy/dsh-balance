@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance-lite",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek 余额显示插件 (精简版): 纯余额与会话消耗显示，无设置面板",
   "repository": {
     "type": "git",
@@ -44,7 +44,11 @@
     "@deepseek-ai/dsh-credentials": "^0.1.0-rc.6"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/dsh-credentials": { "optional": true }
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-credentials": {
+      "optional": true
+    }
   }
 }
