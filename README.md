@@ -127,8 +127,8 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 单次网络请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: CNY
     prices:
-      deepseek-v4-flash: { cacheHit: 0.02, cacheMiss: 1, output: 2 }
-      deepseek-v4-pro: { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+      deepseek-v4-flash: { cacheHit: 0.1, cacheMiss: 3, output: 9 }
+      deepseek-v4-pro: { cacheHit: 0.3, cacheMiss: 9, output: 27 }
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
     defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
@@ -149,11 +149,9 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: USD                 # 计价货币切换为美元
     prices:
-      deepseek-v4-flash: { cacheHit: 0.0028, cacheMiss: 0.14, output: 0.28 }
-      deepseek-v4-pro: { cacheHit: 0.0035, cacheMiss: 0.42, output: 0.84 }
-      deepseek-chat: { cacheHit: 0.014, cacheMiss: 0.14, output: 0.28 }
-      deepseek-reasoner: { cacheHit: 0.14, cacheMiss: 0.55, output: 2.19 }
-    defaultPrices: { cacheHit: 0.014, cacheMiss: 0.14, output: 0.28 }
+      deepseek-v4-flash: { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }
+      deepseek-v4-pro: { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 }
+    defaultPrices: { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }
 ```
 
 ### 模板 3：高频重度开发者（高缓冲安全档）
@@ -236,13 +234,56 @@ A: 插件在向 DeepSeek 官方服务器发送查询请求时，会在请求头�
 **Q: 红黄绿状态指示灯的判断规则是什么？**
 
 A:
-* 🟢 **绿色（充足）**：余额 $ge$ `warningThreshold`（默认 $ge 10$ 元），账户额度充裕。
-* 🟡 **黄色（偏低）**：`dangerThreshold` $le$ 余额 $<$ `warningThreshold`（默认 $5 sim 10$ 元），提示余量不多，建议适时充值。
+* 🟢 **绿色（充足）**：余额 $\ge$ `warningThreshold`（默认 $\ge 10$ 元），账户额度充裕。
+* 🟡 **黄色（偏低）**：`dangerThreshold` $\le$ 余额 $<$ `warningThreshold`（默认 $5 \sim 10$ 元），提示余量不多，建议适时充值。
 * 🔴 **红色（告急）**：余额 $<$ `dangerThreshold`（默认 $< 5$ 元）或余额不可用/异常，警示当前任务可能中断。
-各阈值均可在配置文件中自由调节。
+各阈值均可在可视化设置面板或配置文件中自由调节。
 
 **Q: 8月17日 DeepSeek 官方更新谷峰定价后，插件会自动同步吗？**
 
 A: **完全会自动同步！** 插件内部已植入时间感知计费引擎（`resolveModelPrice`）。当时间进入北京时间 2026年8月17日 00:00 后，插件会在会话发生 Token 扣费估算和展示 `?` 定价卡片时，自动识别当前处于 **☀️ 峰时（09:00~12:00, 14:00~18:00）** 还是 **🌙 谷时（其他时段享5折特惠）**，全自动精准折算与显示，无需人工重启或修改任何配置。
+
+---
+
+## 📝 更新日志 (Changelog)
+
+### v0.2.1 (2026-08-17)
+
+- 💱 **多币种（CNY / USD）阈值独立设置**：
+  - 支持人民币与美元独立设置预警与告急阈值，各币种独立记忆与持久化；
+  - 默认值按今日固定汇率智能换算（CNY: 10 / 5，USD: 1.4 / 0.7），滑块按选中货币自适应调整刻度量程。
+- ⚡ **分段定价配置与自定义模型管理**：
+  - 设置面板支持分别配置与切换 ☀️ 峰时 与 🌙 谷时单价；
+  - 支持在设置面板中动态添加与删除自定义模型单价。
+- 🎨 **UI 与交互精细化优化**：
+  - 峰时/谷时标记去除冗余汉字，采用极简 ☀️ / 🌙 图标，悬停即显时段文字气泡（Tooltip）；
+  - 移除鼠标悬停问号光标，恢复清爽的默认指针；
+  - 修复滑块由于容器定位导致的横向异常贯穿屏幕样式 Bug；
+  - 会话卡片底部辅助提示字号精细优化（9.5px）并对齐列表标记。
+
+---
+
+### v0.2.0 (2026-08-17)
+
+- 🌙 **DeepSeek 谷峰动态计费引擎**：
+  - 内置时间感知计费引擎，自动识别北京时间 09:00~12:00 / 14:00~18:00 峰时与其余时段 5 折谷时；
+  - 会话花费投影与定价参考卡片全自动动态同步。
+- ⚙️ **可视化设置面板**：
+  - 支持在 Web 界面热配置参数并即时「保存并生效」，无需重启服务；
+  - 交互式三色阈值双滑块调节，带实时数值与图例；
+  - 实时 YAML 导出与一键复制功能。
+- 🔄 **状态指示灯一键强刷**：
+  - 点击左上角状态圆点即可穿透本地缓存强刷 DeepSeek 实时余额，内置 2000ms 冷却保护防刷机制。
+
+---
+
+### v0.1.0 (2026-08-16)
+
+- 🚀 **首发版本发布**：
+  - 输入框底部统计栏同行无缝嵌入余额与会话消耗读数；
+  - 红/黄/绿三色账户充足度状态指示灯；
+  - 左右双栏毛玻璃悬停详情卡片（账户总额、充值/赠送构成、模型消耗明细、Token 命中率）；
+  - `?` 定价参考气泡微卡片与官方定价直达链接；
+  - 高性能单例轮询器与 O(1) 投影折叠花费计算。
 
 

@@ -141,10 +141,13 @@ globalThis.fetch = async () => ({
     currency: 'CNY',
     thresholds: { warning: 10, danger: 5 },
     isAvailable: mockIsAvailable,
-    balances: [{ currency: 'CNY', total: mockBalanceTotal, granted: 0, toppedUp: mockBalanceTotal }],
+    balances: [
+      { currency: 'USD', total: 0, granted: 0, toppedUp: 0 },
+      { currency: 'CNY', total: mockBalanceTotal, granted: 0, toppedUp: mockBalanceTotal },
+    ],
     prices: {
-      'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 0.1, output: 0.2 },
-      'deepseek-v4-pro': { cacheHit: 0.025, cacheMiss: 3, output: 6 },
+      'deepseek-v4-flash': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+      'deepseek-v4-pro': { cacheHit: 0.3, cacheMiss: 9, output: 27 },
       'deepseek-chat': { cacheHit: 0.2, cacheMiss: 2, output: 8 },
       'deepseek-reasoner': { cacheHit: 0.5, cacheMiss: 4, output: 16 },
     },
@@ -170,10 +173,20 @@ const props = {
       'card.refreshHint': '💡 点击状态指示灯可立即手动刷新',
       'card.tokens': 'Token: 输入 {input} · 输出 {output}',
       'card.tokensHit': '命中: {hit} ({hitRate}%)',
-      'card.noCost': '本会话暂未产生消耗',
-      'card.pricingHint': '💡 计价规则与单价请见右侧 [?]',
+      'card.pricingHint': '计价规则与单价请见右侧 [?]',
+      'card.pricingStatusPrefix': '💡 当前处于 ',
+      'card.pricingStatusPeakText': '(100%)',
+      'card.pricingStatusOffPeakText': '特惠 (5折)',
       'pricing.title': '📋 DeepSeek V4 定价参考',
       'pricing.rateBadge': '每 1M tokens · {currency}',
+      'pricing.periodPeak': '峰时',
+      'pricing.periodOffPeak': '谷时',
+      'pricing.badgePeak': '100%',
+      'pricing.badgeOffPeak': '5折特惠',
+      'pricing.schedulePeak': '09:00~12:00 / 14:00~18:00 (100%)',
+      'pricing.scheduleOtherPrefix': '· 其余时段为 ',
+      'pricing.scheduleOffPeak': '(5折特惠)',
+      'pricing.scheduleHint': '· ☀️ 09:00~12:00 / 14:00~18:00 (100%)\n· 其余时段为 🌙 (5折特惠)',
       'pricing.hit': '命中 {price}',
       'pricing.miss': '未命中 {price}',
       'pricing.output': '输出 {price}',
@@ -228,9 +241,9 @@ if (!htmlGreen.includes('dshqb_pricing_popover')) throw new Error('pricing popov
 if (!htmlGreen.includes('📋 DeepSeek V4 定价参考')) throw new Error('v4 pricing title missing')
 if (!htmlGreen.includes('deepseek-v4-flash')) throw new Error('v4 flash model missing')
 if (!htmlGreen.includes('deepseek-v4-pro')) throw new Error('v4 pro model missing')
-if (!htmlGreen.includes('命中 ¥0.02')) throw new Error('v4 hit rate missing')
-if (!htmlGreen.includes('未命中 ¥0.1')) throw new Error('v4 miss rate missing')
-if (!htmlGreen.includes('输出 ¥0.2')) throw new Error('v4 output rate missing')
+if (!htmlGreen.includes('命中 ¥0.1')) throw new Error('v4 hit rate missing')
+if (!htmlGreen.includes('未命中 ¥3')) throw new Error('v4 miss rate missing')
+if (!htmlGreen.includes('输出 ¥9')) throw new Error('v4 output rate missing')
 // 验证非 V4 模型被成功过滤不展示在定价气泡中
 if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"')) throw new Error('non-v4 model should be filtered out')
 

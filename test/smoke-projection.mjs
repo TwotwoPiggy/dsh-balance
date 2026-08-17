@@ -3,7 +3,7 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection } from '../src/index.js'
+import { makeCostProjection, resolveModelPrice } from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -63,4 +63,30 @@ state = def.apply(state, { type: 'assistant/message', data: { turn: 0, step: 0, 
 view = def.view(state)
 def.schema.parse(view)
 assert.equal(view.costByModel['unknown'], 0.0002)
+
+// 验证 resolveModelPrice 优先级与多币种能力
+// 1. 用户显式覆盖 V4 模型价格
+const customPriceConfig = {
+  currency: 'CNY',
+  prices: {
+    'deepseek-v4-flash': { cacheHit: 0.01, cacheMiss: 0.5, output: 1.0 },
+  },
+  defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 },
+}
+const priceCustom = resolveModelPrice(customPriceConfig, 'deepseek-v4-flash')
+assert.deepEqual(priceCustom, { cacheHit: 0.01, cacheMiss: 0.5, output: 1.0 }, 'Custom price must override dynamic table')
+
+// 2. USD 币种下的动态时间感知计费 (峰时 10:00 BJT)
+const usdConfig = { currency: 'USD', prices: {}, defaultPrices: { cacheHit: 0.01, cacheMiss: 0.1, output: 0.2 } }
+// 2026-08-18 10:00:00 BJT (UTC+8) -> UTC 02:00:00 -> 峰时
+const peakTime = new Date('2026-08-18T02:00:00Z').getTime()
+const priceUsdPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', peakTime)
+assert.deepEqual(priceUsdPeak, { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }, 'USD peak rate calculation mismatch')
+
+// 3. USD 币种下的动态时间感知计费 (谷时 20:00 BJT)
+// 2026-08-18 20:00:00 BJT (UTC+8) -> UTC 12:00:00 -> 谷时
+const offPeakTime = new Date('2026-08-18T12:00:00Z').getTime()
+const priceUsdOffPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', offPeakTime)
+assert.deepEqual(priceUsdOffPeak, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'USD off-peak rate calculation mismatch')
+
 console.log('PROJECTION TEST PASSED')

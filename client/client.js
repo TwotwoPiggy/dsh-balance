@@ -63,6 +63,7 @@ window.__ModuleLoader__.load({
 				".dshqb_card_hint{font-size:10.5px;color:var(--dsw-alias-label-tertiary);margin-top:auto;padding-top:6px;border-top:1px dashed var(--dsw-alias-separator-primary,var(--dsw-alias-border-l3,rgba(128,128,128,0.15)));display:flex;flex-direction:column;gap:3px}",
 				".dshqb_card_tokens{display:flex;flex-direction:column;gap:2px;font-size:10.5px;color:var(--dsw-alias-label-secondary);line-height:1.35}",
 				".dshqb_card_hit{font-size:10px;color:var(--dsw-alias-label-tertiary);opacity:0.9}",
+				".dshqb_card_pricing_hint{font-size:9.5px;line-height:1.35;color:var(--dsw-alias-label-tertiary);display:flex;flex-direction:column;gap:1.5px}",
 				".dshqb_card_settings_link{color:var(--dsw-alias-brand-primary,var(--dsw-alias-accent-primary,#3b82f6));text-decoration:none;font-size:11px;display:inline-flex;align-items:center;margin-top:4px;cursor:pointer;background:none;border:none;padding:0;font-family:inherit}",
 				".dshqb_card_settings_link:hover{text-decoration:underline}",
 				".dshqb_pricing_wrap{position:relative;display:inline-flex;align-items:center}",
@@ -78,6 +79,7 @@ window.__ModuleLoader__.load({
 				".dshqb_pricing_model_name{font-weight:600;font-size:12px;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}",
 				".dshqb_pricing_rates{font-size:11px;color:var(--dsw-alias-label-secondary);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}",
 				".dshqb_pricing_dot{color:var(--dsw-alias-separator-primary,var(--dsw-alias-border-l3,rgba(128,128,128,0.3)))}",
+				".dshqb_pricing_schedule{font-size:10.5px;color:var(--dsw-alias-label-tertiary);line-height:1.45;padding-top:4px;border-top:1px dashed var(--dsw-alias-separator-primary,rgba(128,128,128,0.15));white-space:pre-line}",
 				".dshqb_pricing_link{color:var(--dsw-alias-brand-primary,var(--dsw-alias-accent-primary,#3b82f6));text-decoration:none;font-size:11px;display:inline-flex;align-items:center;margin-top:2px}",
 				".dshqb_pricing_link:hover{text-decoration:underline}",
 				/* Modal & Settings Styles */
@@ -102,6 +104,7 @@ window.__ModuleLoader__.load({
 				".dshqb_grid_2{display:grid;grid-template-columns:1fr 1fr;gap:14px}",
 				/* Interactive Slider */
 				".dshqb_slider_box{display:flex;flex-direction:column;gap:8px;background:var(--dsw-alias-bg-layer-2,rgba(128,128,128,0.04));padding:14px 16px 12px;border-radius:8px;border:1px solid var(--dsw-alias-border-l3,rgba(128,128,128,0.12));margin-bottom:4px}",
+				".dshqb_slider_hint_text{font-size:11.5px;color:var(--dsw-alias-label-tertiary);line-height:1.4}",
 				".dshqb_slider_track_wrap{position:relative;height:20px;margin-top:26px;margin-bottom:8px;display:flex;align-items:center;cursor:pointer;user-select:none;touch-action:none}",
 				".dshqb_slider_track{position:absolute;left:0;right:0;height:8px;border-radius:999px;background:var(--dsw-alias-border-l2,rgba(128,128,128,0.18));overflow:hidden}",
 				".dshqb_slider_fill_danger{position:absolute;left:0;top:0;bottom:0;background:var(--dsw-alias-state-error-primary,#ef4444)}",
@@ -114,7 +117,13 @@ window.__ModuleLoader__.load({
 				".dshqb_slider_handle_warning{border:3px solid var(--dsw-alias-state-warn-primary,var(--dsw-alias-state-warning-primary,#f59e0b))}",
 				".dshqb_slider_badge{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:var(--dsw-alias-bg-layer-1,var(--dsw-hovercard-bg,#ffffff));border:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,0.25));color:var(--dsw-alias-label-primary);padding:2px 7px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap;pointer-events:none;box-shadow:var(--dsw-shadow-lv2,0 4px 12px rgba(0,0,0,0.15));display:flex;align-items:center;gap:4px;line-height:14px}",
 				".dshqb_slider_badge::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--dsw-alias-bg-layer-1,#ffffff)}",
-				".dshqb_slider_legend{display:flex;justify-content:space-between;font-size:11px;color:var(--dsw-alias-label-tertiary);margin-top:2px}",
+				".dshqb_slider_legend{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dsw-alias-label-tertiary);margin-top:4px}",
+				/* Period Switcher in Pricing Tab */
+				".dshqb_period_tabs{display:flex;gap:6px;background:var(--dsw-alias-bg-layer-2,rgba(128,128,128,0.06));padding:4px;border-radius:8px;border:1px solid var(--dsw-alias-border-l3,rgba(128,128,128,0.12));margin-bottom:6px}",
+				".dshqb_period_tab{flex:1;padding:7px 10px;border:none;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;cursor:pointer;border-radius:6px;transition:all .15s ease;display:flex;align-items:center;justify-content:center;gap:6px}",
+				".dshqb_period_tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,0.06))}",
+				".dshqb_period_tab_active{color:var(--dsw-alias-brand-primary,var(--dsw-alias-accent-primary,#3b82f6));background:var(--dsw-alias-bg-base,var(--dsw-alias-bg-layer-1,#ffffff));box-shadow:var(--dsw-shadow-lv1,0 1px 4px rgba(0,0,0,0.12));font-weight:600}",
+				".dshqb_period_active_badge{font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;line-height:1.2}",
 				/* Pricing Table & Model Add */
 				".dshqb_pricing_table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}",
 				".dshqb_pricing_table th{text-align:left;padding:6px 8px;color:var(--dsw-alias-label-tertiary);font-weight:500;border-bottom:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,0.12))}",
@@ -173,6 +182,15 @@ window.__ModuleLoader__.load({
 			if (total < danger) return "danger";
 			if (total < warning) return "warning";
 			return "success";
+		}
+		function renderScheduleHint(t, r) {
+			return [
+				"· ",
+				r.createElement("span", { title: t("pricing.periodPeak"), key: "s_peak_ic" }, "☀️"),
+				" " + t("pricing.schedulePeak") + "\n" + t("pricing.scheduleOtherPrefix"),
+				r.createElement("span", { title: t("pricing.periodOffPeak"), key: "s_offpeak_ic" }, "🌙"),
+				" " + t("pricing.scheduleOffPeak")
+			];
 		}
 		/** 官方定价页。 */
 		const PRICING_URL = "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/";
@@ -284,10 +302,21 @@ window.__ModuleLoader__.load({
 			"card.tokens": "Token: 输入 {input} · 输出 {output}",
 			"card.tokensHit": "命中: {hit} ({hitRate}%)",
 			"card.noCost": "本会话暂未产生消耗",
-			"card.pricingHint": "💡 计价规则与单价请见右侧 [?]",
+			"card.pricingHint": "计价规则与单价请见右侧 [?]",
+			"card.pricingStatusPrefix": "💡 当前处于 ",
+			"card.pricingStatusPeakText": "(100%)",
+			"card.pricingStatusOffPeakText": "特惠 (5折)",
 			"card.error": "【账户余额】异常: {error}",
 			"pricing.title": "📋 DeepSeek V4 定价参考",
 			"pricing.rateBadge": "每 1M tokens · {currency}",
+			"pricing.periodPeak": "峰时",
+			"pricing.periodOffPeak": "谷时",
+			"pricing.badgePeak": "100%",
+			"pricing.badgeOffPeak": "5折特惠",
+			"pricing.schedulePeak": "09:00~12:00 / 14:00~18:00 (100%)",
+			"pricing.scheduleOtherPrefix": "· 其余时段为 ",
+			"pricing.scheduleOffPeak": "(5折特惠)",
+			"pricing.scheduleHint": "· ☀️ 09:00~12:00 / 14:00~18:00 (100%)\n· 其余时段为 🌙 (5折特惠)",
 			"pricing.hit": "命中 {price}",
 			"pricing.miss": "未命中 {price}",
 			"pricing.output": "输出 {price}",
@@ -314,10 +343,13 @@ window.__ModuleLoader__.load({
 			"settings.clientInterval": "前端读取缓存间隔",
 			"settings.clientIntervalHint": "浏览器从本地只读缓存拉取数据的频率。",
 			"settings.pricingDesc": "配置模型每 100 万 Token（1M Tokens）的命中、未命中与输出单价：",
+			"settings.pricingPeriodPeak": "单价 (09-12 / 14-18)",
+			"settings.pricingPeriodOffPeak": "单价 (5折特惠)",
+			"settings.pricingActiveTag": "当前生效中",
 			"settings.pricingHit": "缓存命中",
 			"settings.pricingMiss": "未命中",
 			"settings.pricingOut": "输出",
-			"settings.pricingReset": "恢复官方默认单价",
+			"settings.pricingReset": "恢复当前时段官方单价",
 			"settings.addModel": "➕ 添加自定义模型",
 			"settings.addModelName": "模型名称 (如 deepseek-chat)",
 			"settings.btnAdd": "添加",
@@ -352,10 +384,21 @@ window.__ModuleLoader__.load({
 			"card.tokens": "Tokens: In {input} · Out {output}",
 			"card.tokensHit": "Cache hit: {hit} ({hitRate}%)",
 			"card.noCost": "No cost in this session yet",
-			"card.pricingHint": "💡 View pricing & rates via [?]",
+			"card.pricingHint": "View pricing & rates via [?]",
+			"card.pricingStatusPrefix": "💡 Current: ",
+			"card.pricingStatusPeakText": "(100%)",
+			"card.pricingStatusOffPeakText": "50% Off",
 			"card.error": "【Account Balance】Error: {error}",
 			"pricing.title": "📋 DeepSeek V4 Pricing",
 			"pricing.rateBadge": "Per 1M tokens · {currency}",
+			"pricing.periodPeak": "Peak Hours",
+			"pricing.periodOffPeak": "Off-Peak",
+			"pricing.badgePeak": "100%",
+			"pricing.badgeOffPeak": "50% Off",
+			"pricing.schedulePeak": "09:00~12:00 / 14:00~18:00 (100%)",
+			"pricing.scheduleOtherPrefix": "· Off-peak hours: ",
+			"pricing.scheduleOffPeak": "(50% off)",
+			"pricing.scheduleHint": "· ☀️ 09:00~12:00 / 14:00~18:00 (100%)\n· Off-peak hours: 🌙 (50% off)",
 			"pricing.hit": "Hit {price}",
 			"pricing.miss": "Miss {price}",
 			"pricing.output": "Out {price}",
@@ -382,6 +425,9 @@ window.__ModuleLoader__.load({
 			"settings.clientInterval": "Client Poll Interval",
 			"settings.clientIntervalHint": "Interval for frontend fetching local cache from backend.",
 			"settings.pricingDesc": "Configure price per 1M tokens for each model:",
+			"settings.pricingPeriodPeak": "Rates (09-12 / 14-18)",
+			"settings.pricingPeriodOffPeak": "Rates (50% Off)",
+			"settings.pricingActiveTag": "Active Now",
 			"settings.pricingHit": "Cache Hit",
 			"settings.pricingMiss": "Cache Miss",
 			"settings.pricingOut": "Output",
@@ -401,13 +447,40 @@ window.__ModuleLoader__.load({
 		//#endregion
 
 		//#region settings modal component
-		const DEFAULT_PRICES = {
-			"deepseek-v4-flash": { cacheHit: 0.02, cacheMiss: 1, output: 2 },
-			"deepseek-v4-pro": { cacheHit: 0.025, cacheMiss: 3, output: 6 }
+		const DEFAULT_THRESHOLDS_BY_CURRENCY = {
+			CNY: { warning: 10, danger: 5 },
+			USD: { warning: 1.4, danger: 0.7 }
+		};
+
+		const DEFAULT_PRICES_BY_CURRENCY = {
+			CNY: {
+				peak: {
+					"deepseek-v4-flash": { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+					"deepseek-v4-pro": { cacheHit: 0.3, cacheMiss: 9, output: 27 }
+				},
+				offPeak: {
+					"deepseek-v4-flash": { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+					"deepseek-v4-pro": { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
+				}
+			},
+			USD: {
+				peak: {
+					"deepseek-v4-flash": { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
+					"deepseek-v4-pro": { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 }
+				},
+				offPeak: {
+					"deepseek-v4-flash": { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
+					"deepseek-v4-pro": { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 }
+				}
+			}
 		};
 
 		const DEFAULT_SETTINGS = {
 			currency: "CNY",
+			thresholds: {
+				CNY: { warning: 10, danger: 5 },
+				USD: { warning: 1.4, danger: 0.7 }
+			},
 			warningThreshold: 10,
 			dangerThreshold: 5,
 			refreshIntervalMs: 300000,
@@ -415,22 +488,35 @@ window.__ModuleLoader__.load({
 			timeoutMs: 8000,
 			baseUrl: "https://api.deepseek.com",
 			apiKey: "",
-			prices: { ...DEFAULT_PRICES }
+			isPeak: false,
+			prices: { ...DEFAULT_PRICES_BY_CURRENCY.CNY.peak },
+			pricesOffPeak: { ...DEFAULT_PRICES_BY_CURRENCY.CNY.offPeak }
 		};
 
 		function generateYaml(config) {
 			const lines = [
 				"- id: dsh-balance",
 				"  config:",
-				`    dangerThreshold: ${config.dangerThreshold}`,
-				`    warningThreshold: ${config.warningThreshold}`,
+				`    currency: ${config.currency}`,
 				`    refreshIntervalMs: ${config.refreshIntervalMs}`,
 				`    clientPollIntervalMs: ${config.clientPollIntervalMs}`,
-				`    currency: ${config.currency}`,
-				"    prices:"
+				"    thresholds:"
 			];
-			for (const [m, p] of Object.entries(config.prices || {})) {
-				lines.push(`      ${m}: { cacheHit: ${p.cacheHit}, cacheMiss: ${p.cacheMiss}, output: ${p.output} }`);
+			const thresholds = config.thresholds || DEFAULT_THRESHOLDS_BY_CURRENCY;
+			for (const [cur, t] of Object.entries(thresholds)) {
+				lines.push(`      ${cur}: { warning: ${t.warning}, danger: ${t.danger} }`);
+			}
+			if (config.prices && Object.keys(config.prices).length > 0) {
+				lines.push("    prices:");
+				for (const [m, p] of Object.entries(config.prices)) {
+					lines.push(`      ${m}: { cacheHit: ${p.cacheHit}, cacheMiss: ${p.cacheMiss}, output: ${p.output} }`);
+				}
+			}
+			if (config.pricesOffPeak && Object.keys(config.pricesOffPeak).length > 0) {
+				lines.push("    pricesOffPeak:");
+				for (const [m, p] of Object.entries(config.pricesOffPeak)) {
+					lines.push(`      ${m}: { cacheHit: ${p.cacheHit}, cacheMiss: ${p.cacheMiss}, output: ${p.output} }`);
+				}
 			}
 			return lines.join("\n");
 		}
@@ -440,8 +526,8 @@ window.__ModuleLoader__.load({
 		 */
 		function InteractiveThresholdSlider({ danger, warning, currency, onChange, t }) {
 			const maxScale = react.useMemo(() => {
-				const base = currency === "USD" ? 10 : 50;
-				return Math.max(base, Math.ceil(warning * 1.3));
+				const base = currency === "USD" ? 5 : 50;
+				return Math.max(base, Math.ceil(warning * 1.4));
 			}, [currency, warning]);
 
 			const pctDanger = Math.min(100, Math.max(0, (danger / maxScale) * 100));
@@ -486,12 +572,12 @@ window.__ModuleLoader__.load({
 				if (distDanger < distWarning) {
 					onChange(Math.max(0, Math.min(warning, clickVal)), warning);
 				} else {
-					onChange(danger, Math.max(danger, clickVal));
+					onChange(danger, Math.max(danger, Math.min(maxScale, clickVal)));
 				}
 			};
 
 			return react.createElement("div", { className: "dshqb_slider_box", key: "slider_box" }, [
-				react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.sliderHint")),
+				react.createElement("div", { className: "dshqb_slider_hint_text", key: "hint_text" }, t("settings.sliderHint")),
 				react.createElement("div", {
 					className: "dshqb_slider_track_wrap",
 					ref: trackRef,
@@ -507,12 +593,12 @@ window.__ModuleLoader__.load({
 						}),
 						react.createElement("div", {
 							className: "dshqb_slider_fill_warning",
-							style: { left: pctDanger + "%", width: (pctWarning - pctDanger) + "%" },
+							style: { left: pctDanger + "%", width: Math.max(0, pctWarning - pctDanger) + "%" },
 							key: "fill_warning"
 						}),
 						react.createElement("div", {
 							className: "dshqb_slider_fill_success",
-							style: { left: pctWarning + "%", width: (100 - pctWarning) + "%" },
+							style: { left: pctWarning + "%", width: Math.max(0, 100 - pctWarning) + "%" },
 							key: "fill_success"
 						})
 					]),
@@ -557,6 +643,7 @@ window.__ModuleLoader__.load({
 		function SettingsModal({ isOpen, onClose, t }) {
 			// Tab 顺序: 常规与阈值 -> 模型单价 -> YAML导出
 			const [activeTab, setActiveTab] = react.useState("general");
+			const [pricingPeriod, setPricingPeriod] = react.useState("peak"); // 'peak' | 'offPeak'
 			const [form, setForm] = react.useState(DEFAULT_SETTINGS);
 			const [loading, setLoading] = react.useState(false);
 			const [saving, setSaving] = react.useState(false);
@@ -578,17 +665,32 @@ window.__ModuleLoader__.load({
 					.then((data) => {
 						if (data && data.ok && data.config) {
 							const c = data.config;
-							const loadedPrices = (c.prices && Object.keys(c.prices).length > 0) ? { ...c.prices } : { ...DEFAULT_PRICES };
+							const isCurrentlyPeak = c.isPeak === true;
+							const cur = c.currency ?? "CNY";
+							setPricingPeriod(isCurrentlyPeak ? "peak" : "offPeak");
+							const defaults = DEFAULT_PRICES_BY_CURRENCY[cur] ?? DEFAULT_PRICES_BY_CURRENCY.CNY;
+							const loadedThresholds = {
+								CNY: { ...DEFAULT_THRESHOLDS_BY_CURRENCY.CNY, ...(c.thresholds?.CNY || {}) },
+								USD: { ...DEFAULT_THRESHOLDS_BY_CURRENCY.USD, ...(c.thresholds?.USD || {}) }
+							};
+							if (c.warningThreshold !== undefined && cur === "CNY") loadedThresholds.CNY.warning = c.warningThreshold;
+							if (c.dangerThreshold !== undefined && cur === "CNY") loadedThresholds.CNY.danger = c.dangerThreshold;
+
+							const activeThreshold = loadedThresholds[cur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY[cur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY;
+
 							setForm({
-								currency: c.currency ?? "CNY",
-								warningThreshold: c.warningThreshold ?? 10,
-								dangerThreshold: c.dangerThreshold ?? 5,
+								currency: cur,
+								thresholds: loadedThresholds,
+								warningThreshold: activeThreshold.warning,
+								dangerThreshold: activeThreshold.danger,
 								refreshIntervalMs: c.refreshIntervalMs ?? 300000,
 								clientPollIntervalMs: c.clientPollIntervalMs ?? 30000,
 								timeoutMs: c.timeoutMs ?? 8000,
 								baseUrl: c.baseUrl ?? "https://api.deepseek.com",
 								apiKey: "",
-								prices: loadedPrices
+								isPeak: isCurrentlyPeak,
+								prices: c.prices && Object.keys(c.prices).length > 0 ? { ...c.prices } : { ...defaults.peak },
+								pricesOffPeak: c.pricesOffPeak && Object.keys(c.pricesOffPeak).length > 0 ? { ...c.pricesOffPeak } : { ...defaults.offPeak }
 							});
 						}
 					})
@@ -621,6 +723,9 @@ window.__ModuleLoader__.load({
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							...form,
+							thresholds: form.thresholds,
+							prices: form.prices,
+							pricesOffPeak: form.pricesOffPeak,
 							warningThreshold: Number(form.warningThreshold),
 							dangerThreshold: Number(form.dangerThreshold),
 							refreshIntervalMs: Number(form.refreshIntervalMs),
@@ -656,37 +761,64 @@ window.__ModuleLoader__.load({
 
 			const handleResetAll = () => {
 				if (confirm("确定要恢复默认设置吗？ / Are you sure to reset all settings?")) {
-					setForm({ ...DEFAULT_SETTINGS });
+					const defaults = DEFAULT_PRICES_BY_CURRENCY[DEFAULT_SETTINGS.currency] ?? DEFAULT_PRICES_BY_CURRENCY.CNY;
+					setForm({
+						...DEFAULT_SETTINGS,
+						thresholds: {
+							CNY: { ...DEFAULT_THRESHOLDS_BY_CURRENCY.CNY },
+							USD: { ...DEFAULT_THRESHOLDS_BY_CURRENCY.USD }
+						},
+						prices: { ...defaults.peak },
+						pricesOffPeak: { ...defaults.offPeak }
+					});
 				}
 			};
 
 			const handleResetPricing = () => {
-				setForm((prev) => ({ ...prev, prices: { ...DEFAULT_PRICES } }));
+				const defaults = DEFAULT_PRICES_BY_CURRENCY[form.currency] ?? DEFAULT_PRICES_BY_CURRENCY.CNY;
+				if (pricingPeriod === "peak") {
+					setForm((prev) => ({ ...prev, prices: { ...defaults.peak } }));
+				} else {
+					setForm((prev) => ({ ...prev, pricesOffPeak: { ...defaults.offPeak } }));
+				}
 			};
 
 			const handleAddModel = () => {
 				const name = newModelName.trim();
 				if (!name) return;
-				setForm((prev) => ({
-					...prev,
-					prices: {
-						...prev.prices,
-						[name]: {
-							cacheHit: Number(newModelHit),
-							cacheMiss: Number(newModelMiss),
-							output: Number(newModelOut)
-						}
-					}
-				}));
+				const newRates = {
+					cacheHit: Number(newModelHit),
+					cacheMiss: Number(newModelMiss),
+					output: Number(newModelOut)
+				};
+				if (pricingPeriod === "peak") {
+					setForm((prev) => ({
+						...prev,
+						prices: { ...prev.prices, [name]: newRates }
+					}));
+				} else {
+					setForm((prev) => ({
+						...prev,
+						pricesOffPeak: { ...prev.pricesOffPeak, [name]: newRates }
+					}));
+				}
 				setNewModelName("");
 			};
 
 			const handleDeleteModel = (modelName) => {
-				setForm((prev) => {
-					const next = { ...prev.prices };
-					delete next[modelName];
-					return { ...prev, prices: next };
-				});
+				if (pricingPeriod === "peak") {
+					setForm((prev) => {
+						const next = { ...prev.prices };
+						delete next[modelName];
+						return { ...prev, prices: next };
+					});
+				} else {
+					setForm((prev) => {
+						const next = { ...prev.pricesOffPeak };
+						delete next[modelName];
+						return { ...prev, pricesOffPeak: next };
+					});
+				}
 			};
 
 			return react.createElement("div", {
@@ -711,79 +843,120 @@ window.__ModuleLoader__.load({
 						react.createElement("button", {
 							className: "dshqb_modal_tab" + (activeTab === "general" ? " dshqb_modal_tab_active" : ""),
 							onClick: () => setActiveTab("general"),
-							key: "tab_general"
+							key: "tab_gen"
 						}, t("settings.tab.general")),
 						react.createElement("button", {
 							className: "dshqb_modal_tab" + (activeTab === "pricing" ? " dshqb_modal_tab_active" : ""),
 							onClick: () => setActiveTab("pricing"),
-							key: "tab_pricing"
+							key: "tab_pri"
 						}, t("settings.tab.pricing")),
 						react.createElement("button", {
 							className: "dshqb_modal_tab" + (activeTab === "export" ? " dshqb_modal_tab_active" : ""),
 							onClick: () => setActiveTab("export"),
-							key: "tab_export"
+							key: "tab_exp"
 						}, t("settings.tab.export"))
 					]),
 					// 3. Body
 					react.createElement("div", { className: "dshqb_modal_body", key: "body" }, [
-						// Tab 1: 常规与阈值 (告急阈值在前，预警阈值在后，支持拖拽设置)
+						// Tab 1: 常规与阈值
 						activeTab === "general" ? react.createElement("div", { className: "dshqb_col", key: "general_content" }, [
-							react.createElement("div", { className: "dshqb_form_group", key: "cur" }, [
-								react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.currency")),
+							// 计价货币选择
+							react.createElement("div", { className: "dshqb_form_group", key: "cur_group" }, [
+								react.createElement("div", { className: "dshqb_form_label_row", key: "lbl_row" }, [
+									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.currency")),
+									react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.currencyHint"))
+								]),
 								react.createElement("select", {
 									className: "dshqb_select",
 									value: form.currency,
-									onChange: (e) => setForm({ ...form, currency: e.target.value }),
+									onChange: (e) => {
+										const newCur = e.target.value;
+										const defaults = DEFAULT_PRICES_BY_CURRENCY[newCur] ?? DEFAULT_PRICES_BY_CURRENCY.CNY;
+										const targetThresholds = form.thresholds?.[newCur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY[newCur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY;
+										setForm({
+											...form,
+											currency: newCur,
+											warningThreshold: targetThresholds.warning,
+											dangerThreshold: targetThresholds.danger,
+											prices: { ...defaults.peak },
+											pricesOffPeak: { ...defaults.offPeak }
+										});
+									},
 									key: "sel"
 								}, [
 									react.createElement("option", { value: "CNY", key: "cny" }, "CNY (人民币 ¥)"),
-									react.createElement("option", { value: "USD", key: "usd" }, "USD (美元 $)"),
-									react.createElement("option", { value: "EUR", key: "eur" }, "EUR (欧元 €)")
-								]),
-								react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.currencyHint"))
+									react.createElement("option", { value: "USD", key: "usd" }, "USD (美元 $)")
+								])
 							]),
-							// 交互式滑块条组件
+							// 交互式阈值调节双滑块
 							react.createElement(InteractiveThresholdSlider, {
 								danger: form.dangerThreshold,
 								warning: form.warningThreshold,
 								currency: form.currency,
-								onChange: (nextDanger, nextWarning) => {
+								onChange: (d, w) => {
 									setForm((prev) => ({
 										...prev,
-										dangerThreshold: nextDanger,
-										warningThreshold: nextWarning
+										dangerThreshold: d,
+										warningThreshold: w,
+										thresholds: {
+											...prev.thresholds,
+											[prev.currency]: { danger: d, warning: w }
+										}
 									}));
 								},
 								t,
 								key: "slider"
 							}),
-							// 阈值数值输入框 (左: 告急阈值, 右: 预警阈值)
+							// 阈值数值输入框 (双列联动)
 							react.createElement("div", { className: "dshqb_grid_2", key: "thresh_grid" }, [
-								react.createElement("div", { className: "dshqb_form_group", key: "dang" }, [
-									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.danger")),
-									react.createElement("input", {
-										type: "number",
-										className: "dshqb_input",
-										value: form.dangerThreshold,
-										onChange: (e) => setForm({ ...form, dangerThreshold: Number(e.target.value) }),
-										key: "inp"
-									}),
-									react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.dangerHint"))
-								]),
 								react.createElement("div", { className: "dshqb_form_group", key: "warn" }, [
 									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.warning")),
 									react.createElement("input", {
 										type: "number",
+										step: "0.1",
 										className: "dshqb_input",
 										value: form.warningThreshold,
-										onChange: (e) => setForm({ ...form, warningThreshold: Number(e.target.value) }),
+										onChange: (e) => {
+											const val = Number(e.target.value);
+											setForm((prev) => ({
+												...prev,
+												warningThreshold: val,
+												thresholds: {
+													...prev.thresholds,
+													[prev.currency]: { ...(prev.thresholds?.[prev.currency] || {}), warning: val }
+												}
+											}));
+										},
 										key: "inp"
 									}),
 									react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.warningHint"))
+								]),
+								react.createElement("div", { className: "dshqb_form_group", key: "danger" }, [
+									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.danger")),
+									react.createElement("input", {
+										type: "number",
+										step: "0.1",
+										className: "dshqb_input",
+										value: form.dangerThreshold,
+										onChange: (e) => {
+											const val = Number(e.target.value);
+											setForm((prev) => ({
+												...prev,
+												dangerThreshold: val,
+												thresholds: {
+													...prev.thresholds,
+													[prev.currency]: { ...(prev.thresholds?.[prev.currency] || {}), danger: val }
+												}
+											}));
+										},
+										key: "inp"
+									}),
+									react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.dangerHint"))
 								])
 							]),
-							react.createElement("div", { className: "dshqb_grid_2", key: "int_grid" }, [
-								react.createElement("div", { className: "dshqb_form_group", key: "server_int" }, [
+							// 轮询频率配置 (双列)
+							react.createElement("div", { className: "dshqb_grid_2", style: { marginTop: "4px" }, key: "interval_grid" }, [
+								react.createElement("div", { className: "dshqb_form_group", key: "srv_int" }, [
 									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.serverInterval")),
 									react.createElement("select", {
 										className: "dshqb_select",
@@ -815,8 +988,43 @@ window.__ModuleLoader__.load({
 							])
 						]) : null,
 
-						// Tab 2: 模型单价 (默认显示 V4 并支持手动添加自定义模型)
+						// Tab 2: 模型单价 (支持峰时/谷时时段切换，默认显示 V4 并支持手动添加自定义模型)
 						activeTab === "pricing" ? react.createElement("div", { className: "dshqb_col", key: "pricing_content" }, [
+							// 时段切换分段按钮
+							react.createElement("div", { className: "dshqb_period_tabs", key: "period_tabs" }, [
+								react.createElement("button", {
+									type: "button",
+									className: "dshqb_period_tab" + (pricingPeriod === "peak" ? " dshqb_period_tab_active" : ""),
+									onClick: () => setPricingPeriod("peak"),
+									key: "tab_peak"
+								}, [
+									react.createElement("span", { key: "lbl" }, [
+										react.createElement("span", {
+											title: t("pricing.periodPeak"),
+											style: { marginRight: "4px" },
+											key: "ic"
+										}, "☀️"),
+										t("settings.pricingPeriodPeak")
+									]),
+									form.isPeak ? react.createElement("span", { className: "dshqb_period_active_badge", key: "badge" }, t("settings.pricingActiveTag")) : null
+								]),
+								react.createElement("button", {
+									type: "button",
+									className: "dshqb_period_tab" + (pricingPeriod === "offPeak" ? " dshqb_period_tab_active" : ""),
+									onClick: () => setPricingPeriod("offPeak"),
+									key: "tab_offpeak"
+								}, [
+									react.createElement("span", { key: "lbl" }, [
+										react.createElement("span", {
+											title: t("pricing.periodOffPeak"),
+											style: { marginRight: "4px" },
+											key: "ic"
+										}, "🌙"),
+										t("settings.pricingPeriodOffPeak")
+									]),
+									!form.isPeak ? react.createElement("span", { className: "dshqb_period_active_badge", key: "badge" }, t("settings.pricingActiveTag")) : null
+								])
+							]),
 							react.createElement("div", { className: "dshqb_form_label_row", key: "p_head" }, [
 								react.createElement("span", { className: "dshqb_form_hint", key: "desc" }, t("settings.pricingDesc")),
 								react.createElement("button", {
@@ -827,6 +1035,11 @@ window.__ModuleLoader__.load({
 									key: "p_reset"
 								}, t("settings.pricingReset"))
 							]),
+							react.createElement("div", {
+								className: "dshqb_pricing_schedule",
+								style: { margin: "2px 0 6px", borderTop: "none" },
+								key: "p_schedule"
+							}, renderScheduleHint(t, react)),
 							react.createElement("table", { className: "dshqb_pricing_table", key: "p_table" }, [
 								react.createElement("thead", { key: "th" }, [
 									react.createElement("tr", { key: "r" }, [
@@ -838,7 +1051,7 @@ window.__ModuleLoader__.load({
 									])
 								]),
 								react.createElement("tbody", { key: "tb" },
-									Object.entries(form.prices || {}).map(([model, rates]) =>
+									Object.entries((pricingPeriod === "peak" ? form.prices : form.pricesOffPeak) || {}).map(([model, rates]) =>
 										react.createElement("tr", { key: model }, [
 											react.createElement("td", { style: { fontWeight: "600" }, key: "m_name" }, model),
 											react.createElement("td", { key: "m_hit" }, [
@@ -849,10 +1062,17 @@ window.__ModuleLoader__.load({
 													value: rates.cacheHit,
 													onChange: (e) => {
 														const val = Number(e.target.value);
-														setForm({
-															...form,
-															prices: { ...form.prices, [model]: { ...rates, cacheHit: val } }
-														});
+														if (pricingPeriod === "peak") {
+															setForm({
+																...form,
+																prices: { ...form.prices, [model]: { ...rates, cacheHit: val } }
+															});
+														} else {
+															setForm({
+																...form,
+																pricesOffPeak: { ...form.pricesOffPeak, [model]: { ...rates, cacheHit: val } }
+															});
+														}
 													}
 												})
 											]),
@@ -864,10 +1084,17 @@ window.__ModuleLoader__.load({
 													value: rates.cacheMiss,
 													onChange: (e) => {
 														const val = Number(e.target.value);
-														setForm({
-															...form,
-															prices: { ...form.prices, [model]: { ...rates, cacheMiss: val } }
-														});
+														if (pricingPeriod === "peak") {
+															setForm({
+																...form,
+																prices: { ...form.prices, [model]: { ...rates, cacheMiss: val } }
+															});
+														} else {
+															setForm({
+																...form,
+																pricesOffPeak: { ...form.pricesOffPeak, [model]: { ...rates, cacheMiss: val } }
+															});
+														}
 													}
 												})
 											]),
@@ -879,10 +1106,17 @@ window.__ModuleLoader__.load({
 													value: rates.output,
 													onChange: (e) => {
 														const val = Number(e.target.value);
-														setForm({
-															...form,
-															prices: { ...form.prices, [model]: { ...rates, output: val } }
-														});
+														if (pricingPeriod === "peak") {
+															setForm({
+																...form,
+																prices: { ...form.prices, [model]: { ...rates, output: val } }
+															});
+														} else {
+															setForm({
+																...form,
+																pricesOffPeak: { ...form.pricesOffPeak, [model]: { ...rates, output: val } }
+															});
+														}
 													}
 												})
 											]),
@@ -1049,9 +1283,10 @@ window.__ModuleLoader__.load({
 			if (balance.status === "ok") {
 				const info = balance.payload;
 				if (info.ok === true && Array.isArray(info.balances) && info.balances.length > 0) {
-					const primary = info.balances[0];
+					const primary = info.balances.find((entry) => entry.currency === info.currency) ?? info.balances[0];
 					const amount = formatMoney(primary.total, primary.currency);
-					const level = getStatusLevel(primary.total, info.isAvailable === true, info.thresholds);
+					const currencyThresholds = info.thresholdsByCurrency?.[primary.currency] ?? info.thresholds;
+					const level = getStatusLevel(primary.total, info.isAvailable === true, currencyThresholds);
 					const levelText = level === "success" ? t("status.sufficient") : level === "warning" ? t("status.warning") : t("status.danger");
 					const statusDot = react.createElement("button", {
 						type: "button",
@@ -1175,7 +1410,17 @@ window.__ModuleLoader__.load({
 							]);
 						})()
 						: null,
-					react.createElement("div", { key: "tip" }, t("card.pricingHint"))
+					react.createElement("div", { className: "dshqb_card_pricing_hint", key: "pricing_hint" }, [
+						react.createElement("div", { key: "tip_status" }, [
+							t("card.pricingStatusPrefix"),
+							react.createElement("span", {
+								title: balance.payload?.isPeak ? t("pricing.periodPeak") : t("pricing.periodOffPeak"),
+								key: "ic"
+							}, balance.payload?.isPeak ? "☀️" : "🌙"),
+							" " + (balance.payload?.isPeak ? t("card.pricingStatusPeakText") : t("card.pricingStatusOffPeakText"))
+						]),
+						react.createElement("div", { key: "tip_rule", style: { opacity: 0.85 } }, t("card.pricingHint"))
+					])
 				])
 			]);
 
@@ -1185,6 +1430,16 @@ window.__ModuleLoader__.load({
 				const payload = balance.payload;
 				const currency = typeof payload.currency === "string" ? payload.currency : "CNY";
 				const prices = payload.prices !== null && typeof payload.prices === "object" ? payload.prices : {};
+				const isPeak = payload.isPeak === true;
+				const periodBadge = react.createElement("span", { key: "b" }, [
+					react.createElement("span", {
+						title: isPeak ? t("pricing.periodPeak") : t("pricing.periodOffPeak"),
+						style: { marginRight: "3px" },
+						key: "ic"
+					}, isPeak ? "☀️" : "🌙"),
+					(isPeak ? t("pricing.badgePeak") : t("pricing.badgeOffPeak")) + " · " + currency
+				]);
+				const badgeClass = isPeak ? "dshqb_card_badge_warning" : "dshqb_card_badge_success";
 				
 				const v4Entries = Object.entries(prices).filter(([model]) =>
 					model.toLowerCase().includes("v4")
@@ -1197,7 +1452,7 @@ window.__ModuleLoader__.load({
 				}, [
 					react.createElement("div", { className: "dshqb_card_header", key: "head" }, [
 						react.createElement("span", { key: "title" }, t("pricing.title")),
-						react.createElement("span", { className: "dshqb_card_badge dshqb_card_badge_info", key: "badge" }, t("pricing.rateBadge", { currency }))
+						react.createElement("span", { className: "dshqb_card_badge " + badgeClass, key: "badge" }, periodBadge)
 					]),
 					react.createElement("div", { className: "dshqb_pricing_models", key: "models" },
 						entriesToShow.map(([model, p], idx) =>
@@ -1213,6 +1468,7 @@ window.__ModuleLoader__.load({
 							])
 						)
 					),
+					react.createElement("div", { className: "dshqb_pricing_schedule", key: "schedule" }, renderScheduleHint(t, react)),
 					react.createElement("a", {
 						className: "dshqb_pricing_link",
 						key: "link",

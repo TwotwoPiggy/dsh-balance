@@ -180,21 +180,21 @@ body {
       <div class="dshqb_pricing_card_item">
         <div class="dshqb_pricing_model_name">• deepseek-v4-flash</div>
         <div class="dshqb_pricing_rates">
-          <span>命中 ¥0.02</span>
+          <span>命中 ¥0.1</span>
           <span class="dshqb_pricing_dot">·</span>
-          <span>未命中 ¥1.00</span>
+          <span>未命中 ¥3.00</span>
           <span class="dshqb_pricing_dot">·</span>
-          <span>输出 ¥2.00</span>
+          <span>输出 ¥9.00</span>
         </div>
       </div>
       <div class="dshqb_pricing_card_item">
         <div class="dshqb_pricing_model_name">• deepseek-v4-pro</div>
         <div class="dshqb_pricing_rates">
-          <span>命中 ¥0.025</span>
+          <span>命中 ¥0.3</span>
           <span class="dshqb_pricing_dot">·</span>
-          <span>未命中 ¥3.00</span>
+          <span>未命中 ¥9.00</span>
           <span class="dshqb_pricing_dot">·</span>
-          <span>输出 ¥6.00</span>
+          <span>输出 ¥27.00</span>
         </div>
       </div>
     </div>

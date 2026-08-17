@@ -26,6 +26,38 @@ const ModelPrice = Schema.object({
   output: Schema.number().min(0).default(8),
 })
 
+/** 货币阈值配置 Schema */
+const ThresholdConfig = Schema.object({
+  warning: Schema.number().min(0).default(10),
+  danger: Schema.number().min(0).default(5),
+})
+
+/**
+ * 默认多币种阈值基准 (以人民币 CNY 为基准, 按今日汇率 1 USD ≈ 7.15 CNY 换算固定):
+ * - CNY: 预警 10 元, 告急 5 元
+ * - USD: 预警 $1.40, 告急 $0.70
+ */
+export const DEFAULT_THRESHOLDS_BY_CURRENCY = {
+  CNY: { warning: 10, danger: 5 },
+  USD: { warning: 1.4, danger: 0.7 },
+}
+
+/**
+ * 获取指定货币下的预警与告急阈值。
+ */
+export const resolveThresholds = (config, currency = config?.currency) => {
+  const cur = (currency || 'CNY').toUpperCase()
+  const defaults = DEFAULT_THRESHOLDS_BY_CURRENCY[cur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY
+  const custom = config?.thresholds?.[cur]
+  const warning = typeof custom?.warning === 'number'
+    ? custom.warning
+    : (cur === 'CNY' && typeof config?.warningThreshold === 'number' ? config.warningThreshold : defaults.warning)
+  const danger = typeof custom?.danger === 'number'
+    ? custom.danger
+    : (cur === 'CNY' && typeof config?.dangerThreshold === 'number' ? config.dangerThreshold : defaults.danger)
+  return { warning, danger }
+}
+
 export const Config = Schema.object({
   /** 显式 API 密钥; 留空则走 apiKeyRef(credentials / 环境变量) */
   apiKey: Schema.string().default(''),
@@ -41,48 +73,83 @@ export const Config = Schema.object({
   timeoutMs: Schema.number().min(1000).default(8000),
   /** 花费估算的计价货币(与 prices 一致) */
   currency: Schema.string().default('CNY'),
-  prices: Schema.dict(ModelPrice).default({
-    'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 1, output: 2 },
-    'deepseek-v4-pro': { cacheHit: 0.025, cacheMiss: 3, output: 6 },
-  }),
-  /** 余额预警阈值(低于此值显示黄色状态) */
-  warningThreshold: Schema.number().min(0).default(10),
-  /** 余额告急阈值(低于此值显示红色状态) */
-  dangerThreshold: Schema.number().min(0).default(5),
+  prices: Schema.dict(ModelPrice).default({}),
+  /** 谷时模型单价表(用户自定义，留空则使用官方最新标准单价) */
+  pricesOffPeak: Schema.dict(ModelPrice).default({}),
+  /** 兼容旧版: 余额预警阈值(低于此值显示黄色状态) */
+  warningThreshold: Schema.number().min(0),
+  /** 兼容旧版: 余额告急阈值(低于此值显示红色状态) */
+  dangerThreshold: Schema.number().min(0),
+  /** 多币种独立阈值配置表 (CNY, USD 等) */
+  thresholds: Schema.dict(ThresholdConfig).default({}),
   /** 未列出的模型的回退单价 */
   defaultPrices: ModelPrice.default({ cacheHit: 0.1, cacheMiss: 1, output: 2 }),
 })
 
-/** 实时计算指定模型在指定时间戳下的单价(内置 DeepSeek V4 8月17日谷峰费率自动切换规则) */
+/** DeepSeek V4 官方现行定价表 (单位: 每 100 万 tokens, 支持 CNY 与 USD 谷峰费率) */
+export const V4_RATES = {
+  CNY: {
+    peak: {
+      'deepseek-v4-flash': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+      'deepseek-v4-pro': { cacheHit: 0.3, cacheMiss: 9, output: 27 },
+    },
+    offPeak: {
+      'deepseek-v4-flash': { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+      'deepseek-v4-pro': { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 },
+    },
+  },
+  USD: {
+    peak: {
+      'deepseek-v4-flash': { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
+      'deepseek-v4-pro': { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 },
+    },
+    offPeak: {
+      'deepseek-v4-flash': { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
+      'deepseek-v4-pro': { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 },
+    },
+  },
+}
+
+/**
+ * 实时计算指定模型在指定时间戳下的单价。
+ * 优先级:
+ * 1. 峰时优先匹配 config.prices[model]，谷时优先匹配 config.pricesOffPeak[model]；
+ * 2. 若为内置 DeepSeek V4 模型 (flash / pro)，按货币 (CNY/USD) 和北京时间谷峰费率自动计算；
+ * 3. 其余未知名模型回退到 config.defaultPrices。
+ */
 export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now()) => {
   const config = typeof configOrGetter === 'function' ? configOrGetter() : configOrGetter
-  const isV4Flash = model === 'deepseek-v4-flash'
-  const isV4Pro = model === 'deepseek-v4-pro'
 
-  if (!isV4Flash && !isV4Pro) {
-    return config.prices?.[model] ?? config.defaultPrices
-  }
-
-  // 2026-08-17T00:00:00+08:00 (北京时间 8月17日 00:00)
-  const isAfterCutoff = timestamp >= 1786896000000
-
-  if (!isAfterCutoff) {
-    if (isV4Flash) return { cacheHit: 0.02, cacheMiss: 1, output: 2 }
-    if (isV4Pro) return { cacheHit: 0.025, cacheMiss: 3, output: 6 }
-  }
-
+  // 1. 北京时间 (UTC+8) 峰时段: 09:00~12:00, 14:00~18:00; 其余时段为谷时特惠 (5折)
   const d = new Date(timestamp)
   const hourBJT = (d.getUTCHours() + 8) % 24
   const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
 
   if (isPeak) {
-    if (isV4Flash) return { cacheHit: 0.10, cacheMiss: 3.0, output: 9.0 }
-    if (isV4Pro) return { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 }
+    if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
+      return config.prices[model]
+    }
   } else {
-    if (isV4Flash) return { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }
-    if (isV4Pro) return { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
+    if (config?.pricesOffPeak && Object.prototype.hasOwnProperty.call(config.pricesOffPeak, model) && config.pricesOffPeak[model]) {
+      return config.pricesOffPeak[model]
+    }
+    if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
+      return config.prices[model]
+    }
   }
-  return config.defaultPrices
+
+  const isV4Flash = model === 'deepseek-v4-flash'
+  const isV4Pro = model === 'deepseek-v4-pro'
+
+  if (!isV4Flash && !isV4Pro) {
+    return config?.defaultPrices ?? { cacheHit: 0.1, cacheMiss: 1, output: 2 }
+  }
+
+  // 2. 根据计价货币选择对应币种的定价表 (支持 CNY / USD)
+  const currency = typeof config?.currency === 'string' && config.currency.toUpperCase() === 'USD' ? 'USD' : 'CNY'
+  const table = V4_RATES[currency] ?? V4_RATES.CNY
+
+  return (isPeak ? table.peak[model] : table.offPeak[model]) ?? config?.defaultPrices
 }
 
 /** 归一化 DeepSeek 余额响应中的金额字符串。 */
@@ -240,6 +307,7 @@ const readJsonBody = (req) => new Promise((resolve, reject) => {
 })
 
 export function apply(ctx, config) {
+  const initialCurrency = (config.currency ?? 'CNY').toUpperCase()
   // 运行时可变配置（优先使用用户在设置面板中动态修改的值）
   let runtimeConfig = {
     apiKey: config.apiKey ?? '',
@@ -248,10 +316,30 @@ export function apply(ctx, config) {
     refreshIntervalMs: config.refreshIntervalMs ?? 300000,
     clientPollIntervalMs: config.clientPollIntervalMs ?? 30000,
     timeoutMs: config.timeoutMs ?? 8000,
-    currency: config.currency ?? 'CNY',
+    currency: initialCurrency,
+    thresholds: {
+      CNY: {
+        warning: typeof config.thresholds?.CNY?.warning === 'number'
+          ? config.thresholds.CNY.warning
+          : (typeof config.warningThreshold === 'number' ? config.warningThreshold : DEFAULT_THRESHOLDS_BY_CURRENCY.CNY.warning),
+        danger: typeof config.thresholds?.CNY?.danger === 'number'
+          ? config.thresholds.CNY.danger
+          : (typeof config.dangerThreshold === 'number' ? config.dangerThreshold : DEFAULT_THRESHOLDS_BY_CURRENCY.CNY.danger),
+      },
+      USD: {
+        warning: typeof config.thresholds?.USD?.warning === 'number'
+          ? config.thresholds.USD.warning
+          : DEFAULT_THRESHOLDS_BY_CURRENCY.USD.warning,
+        danger: typeof config.thresholds?.USD?.danger === 'number'
+          ? config.thresholds.USD.danger
+          : DEFAULT_THRESHOLDS_BY_CURRENCY.USD.danger,
+      },
+      ...(config.thresholds ?? {}),
+    },
     warningThreshold: config.warningThreshold ?? 10,
     dangerThreshold: config.dangerThreshold ?? 5,
     prices: { ...(config.prices ?? {}) },
+    pricesOffPeak: { ...(config.pricesOffPeak ?? {}) },
     defaultPrices: { ...(config.defaultPrices ?? { cacheHit: 0.1, cacheMiss: 1, output: 2 }) },
   }
 
@@ -357,6 +445,26 @@ export function apply(ctx, config) {
   }
 
   const getSanitizedConfig = () => {
+    const d = new Date()
+    const hourBJT = (d.getUTCHours() + 8) % 24
+    const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+    const currency = typeof runtimeConfig.currency === 'string' && runtimeConfig.currency.toUpperCase() === 'USD' ? 'USD' : 'CNY'
+    const table = V4_RATES[currency] ?? V4_RATES.CNY
+
+    const peakPrices = {
+      'deepseek-v4-flash': table.peak['deepseek-v4-flash'],
+      'deepseek-v4-pro': table.peak['deepseek-v4-pro'],
+      ...runtimeConfig.prices,
+    }
+
+    const offPeakPrices = {
+      'deepseek-v4-flash': table.offPeak['deepseek-v4-flash'],
+      'deepseek-v4-pro': table.offPeak['deepseek-v4-pro'],
+      ...runtimeConfig.pricesOffPeak,
+    }
+
+    const activeThresholds = resolveThresholds(runtimeConfig, runtimeConfig.currency)
+
     return {
       hasCustomKey: Boolean(runtimeConfig.apiKey),
       apiKeyMasked: maskKey(runtimeConfig.apiKey),
@@ -366,9 +474,15 @@ export function apply(ctx, config) {
       clientPollIntervalMs: runtimeConfig.clientPollIntervalMs,
       timeoutMs: runtimeConfig.timeoutMs,
       currency: runtimeConfig.currency,
-      warningThreshold: runtimeConfig.warningThreshold,
-      dangerThreshold: runtimeConfig.dangerThreshold,
-      prices: { ...runtimeConfig.prices },
+      warningThreshold: activeThresholds.warning,
+      dangerThreshold: activeThresholds.danger,
+      thresholds: {
+        CNY: resolveThresholds(runtimeConfig, 'CNY'),
+        USD: resolveThresholds(runtimeConfig, 'USD'),
+      },
+      isPeak,
+      prices: peakPrices,
+      pricesOffPeak: offPeakPrices,
       defaultPrices: { ...runtimeConfig.defaultPrices },
     }
   }
@@ -376,21 +490,29 @@ export function apply(ctx, config) {
   // 可选 webServer: 提供浏览器读取的缓存端点与设置端点
   ctx.inject(['webServer'], (webCtx) => {
     const serialize = () => {
+      const d = new Date()
+      const hourBJT = (d.getUTCHours() + 8) % 24
+      const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+
+      const activeThresholds = resolveThresholds(runtimeConfig, runtimeConfig.currency)
+
       const base = {
         ok: cache.state === 'ok',
         fetchedAt: cache.fetchedAt,
         refreshIntervalMs: runtimeConfig.refreshIntervalMs,
         clientPollIntervalMs: runtimeConfig.clientPollIntervalMs,
         currency: runtimeConfig.currency,
-        thresholds: {
-          warning: runtimeConfig.warningThreshold,
-          danger: runtimeConfig.dangerThreshold,
+        isPeak,
+        thresholds: activeThresholds,
+        thresholdsByCurrency: {
+          CNY: resolveThresholds(runtimeConfig, 'CNY'),
+          USD: resolveThresholds(runtimeConfig, 'USD'),
         },
         // 定价表随响应动态下发 (内置 8月17日谷峰费率自动切换规则), 供客户端 "?" 图标展示
         prices: {
-          ...runtimeConfig.prices,
           'deepseek-v4-flash': resolveModelPrice(runtimeConfig, 'deepseek-v4-flash'),
           'deepseek-v4-pro': resolveModelPrice(runtimeConfig, 'deepseek-v4-pro'),
+          ...(isPeak ? runtimeConfig.prices : runtimeConfig.pricesOffPeak),
         },
         defaultPrices: runtimeConfig.defaultPrices,
       }
@@ -462,14 +584,41 @@ export function apply(ctx, config) {
             if (typeof body.apiKey === 'string') runtimeConfig.apiKey = body.apiKey.trim()
             if (typeof body.apiKeyRef === 'string' && body.apiKeyRef.trim()) runtimeConfig.apiKeyRef = body.apiKeyRef.trim()
             if (typeof body.baseUrl === 'string' && body.baseUrl.trim()) runtimeConfig.baseUrl = body.baseUrl.trim()
-            if (typeof body.warningThreshold === 'number' && body.warningThreshold >= 0) runtimeConfig.warningThreshold = body.warningThreshold
-            if (typeof body.dangerThreshold === 'number' && body.dangerThreshold >= 0) runtimeConfig.dangerThreshold = body.dangerThreshold
             if (typeof body.refreshIntervalMs === 'number' && body.refreshIntervalMs >= 1000) runtimeConfig.refreshIntervalMs = body.refreshIntervalMs
             if (typeof body.clientPollIntervalMs === 'number' && body.clientPollIntervalMs >= 1000) runtimeConfig.clientPollIntervalMs = body.clientPollIntervalMs
             if (typeof body.timeoutMs === 'number' && body.timeoutMs >= 1000) runtimeConfig.timeoutMs = body.timeoutMs
             if (typeof body.currency === 'string' && body.currency.trim()) runtimeConfig.currency = body.currency.trim().toUpperCase()
+
+            if (body.thresholds && typeof body.thresholds === 'object') {
+              for (const [cur, t] of Object.entries(body.thresholds)) {
+                if (t && typeof t === 'object') {
+                  const upperCur = cur.toUpperCase()
+                  if (!runtimeConfig.thresholds[upperCur]) {
+                    runtimeConfig.thresholds[upperCur] = { ...(DEFAULT_THRESHOLDS_BY_CURRENCY[upperCur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY) }
+                  }
+                  if (typeof t.warning === 'number' && t.warning >= 0) runtimeConfig.thresholds[upperCur].warning = t.warning
+                  if (typeof t.danger === 'number' && t.danger >= 0) runtimeConfig.thresholds[upperCur].danger = t.danger
+                }
+              }
+            }
+            if (typeof body.warningThreshold === 'number' && body.warningThreshold >= 0) {
+              const cur = runtimeConfig.currency
+              if (!runtimeConfig.thresholds[cur]) runtimeConfig.thresholds[cur] = { ...(DEFAULT_THRESHOLDS_BY_CURRENCY[cur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY) }
+              runtimeConfig.thresholds[cur].warning = body.warningThreshold
+              runtimeConfig.warningThreshold = body.warningThreshold
+            }
+            if (typeof body.dangerThreshold === 'number' && body.dangerThreshold >= 0) {
+              const cur = runtimeConfig.currency
+              if (!runtimeConfig.thresholds[cur]) runtimeConfig.thresholds[cur] = { ...(DEFAULT_THRESHOLDS_BY_CURRENCY[cur] ?? DEFAULT_THRESHOLDS_BY_CURRENCY.CNY) }
+              runtimeConfig.thresholds[cur].danger = body.dangerThreshold
+              runtimeConfig.dangerThreshold = body.dangerThreshold
+            }
+
             if (body.prices && typeof body.prices === 'object') {
               runtimeConfig.prices = { ...body.prices }
+            }
+            if (body.pricesOffPeak && typeof body.pricesOffPeak === 'object') {
+              runtimeConfig.pricesOffPeak = { ...body.pricesOffPeak }
             }
             if (body.defaultPrices && typeof body.defaultPrices === 'object') {
               runtimeConfig.defaultPrices = { ...runtimeConfig.defaultPrices, ...body.defaultPrices }

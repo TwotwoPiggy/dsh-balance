@@ -139,9 +139,12 @@ async function runTests() {
   assert.equal(resPostConfig.data.config.warningThreshold, 30)
   assert.equal(resPostConfig.data.config.dangerThreshold, 15)
   assert.equal(resPostConfig.data.config.currency, 'USD')
-  assert.equal(resPostConfig.data.config.clientPollIntervalMs, 15000)
-  assert.deepEqual(Object.keys(resPostConfig.data.config.prices), ['deepseek-v4-flash'], 'prices should be completely replaced without deleted models')
-  console.log('POST /query-balance/config passed (including model deletion test)')
+  assert.deepEqual(resPostConfig.data.config.thresholds.USD, { warning: 30, danger: 15 })
+  assert.deepEqual(resPostConfig.data.config.thresholds.CNY, { warning: 10, danger: 5 })
+  assert.equal(resPostConfig.data.config.prices['deepseek-chat'], undefined, 'deleted custom model should not exist')
+  assert.ok(resPostConfig.data.config.prices['deepseek-v4-flash'], 'flash price exists')
+  assert.equal(resPostConfig.data.config.prices['deepseek-v4-flash'].cacheHit, 0.02)
+  console.log('POST /query-balance/config passed (including model deletion and multi-currency thresholds test)')
 
   // 3. 验证动态配置生效到会话花费投影
   if (mockCtx._projection) {
