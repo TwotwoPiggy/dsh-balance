@@ -49,8 +49,14 @@ DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/
 DeepSeek Harness 自带的插件管理命令可以为您**一键完成下载安装和修改配置文件**：
 
 ```sh
+# 完整版（默认）：包含可视化设置面板、定价参考浮层等丰富功能
 dsh plugin --profile web add dsh-balance
+
+# 精简版（可选）：纯余额与会话消耗显示，去除所有弹窗与设置界面（体积仅为 1/3）
+dsh plugin --profile web add dsh-balance-lite
 ```
+
+> 💡 两个版本二选一安装即可。
 
 执行完毕后，**重启 `dsh web` 即可生效。**
 

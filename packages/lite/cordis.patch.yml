@@ -1,0 +1,19 @@
+# dsh-balance-lite bundle 层: 一个插件行。
+# 安装: dsh plugin --profile web add <本目录>   (会自动应用本 patch 层)
+# 覆盖配置示例(写进 $DSH_HOME/profiles/web/cordis.patch.yml):
+#   - id: dsh-balance-lite
+#     config:
+#       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(单位: 毫秒 ms，120000ms = 2分钟)
+#       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(单位: 毫秒 ms，15000ms = 15秒)
+#       thresholds:
+#         CNY: { warning: 10, danger: 5 }
+#         USD: { warning: 1.4, danger: 0.7 }
+- insert:
+    - id: dsh-balance-lite
+      name: dsh-balance-lite
+      config:
+        refreshIntervalMs: 300000
+        clientPollIntervalMs: 30000
+        thresholds:
+          CNY: { warning: 10, danger: 5 }
+          USD: { warning: 1.4, danger: 0.7 }

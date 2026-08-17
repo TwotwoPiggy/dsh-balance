@@ -14,7 +14,9 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "node test/smoke-projection.mjs && node test/smoke-config-api.mjs && node test/smoke-client.mjs"
+    "test": "node test/smoke-projection.mjs && node test/smoke-config-api.mjs && node test/smoke-client.mjs",
+    "test:lite": "node packages/lite/test/smoke-projection.mjs && node packages/lite/test/smoke-client.mjs",
+    "test:all": "npm test && npm run test:lite"
   },
   "files": [
     "src",
