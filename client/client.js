@@ -153,9 +153,12 @@ window.__ModuleLoader__.load({
 		const currencySymbol = (currency) => CURRENCY_SYMBOLS[currency] ?? currency + " ";
 		/** 余额/花费显示: 0 显示 2 位, 大额 2 位小数, 小额 3~4 位。 */
 		function formatMoney(amount, currency) {
+			if (typeof amount !== "number" || isNaN(amount)) return currencySymbol(currency) + "0.00";
 			if (amount === 0) return currencySymbol(currency) + "0.00";
-			const fixed = amount >= 1 ? 2 : amount >= 0.01 ? 3 : 4;
-			return currencySymbol(currency) + amount.toFixed(fixed);
+			const sign = amount < 0 ? "-" : "";
+			const abs = Math.abs(amount);
+			const fixed = abs >= 1 ? 2 : abs >= 0.01 ? 3 : 4;
+			return sign + currencySymbol(currency) + abs.toFixed(fixed);
 		}
 		/** 紧凑 token 数: 517 / 12.2K / 517K / 1.2M。 */
 		function formatTokens(n) {
@@ -718,20 +721,25 @@ window.__ModuleLoader__.load({
 			const handleSave = async () => {
 				setSaving(true);
 				try {
+					const payload = {
+						currency: form.currency,
+						thresholds: form.thresholds,
+						prices: form.prices,
+						pricesOffPeak: form.pricesOffPeak,
+						warningThreshold: Number(form.warningThreshold),
+						dangerThreshold: Number(form.dangerThreshold),
+						refreshIntervalMs: Number(form.refreshIntervalMs),
+						clientPollIntervalMs: Number(form.clientPollIntervalMs),
+						timeoutMs: Number(form.timeoutMs),
+						baseUrl: form.baseUrl
+					};
+					if (typeof form.apiKey === "string" && form.apiKey.trim()) {
+						payload.apiKey = form.apiKey.trim();
+					}
 					const res = await fetch("/query-balance/config", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							...form,
-							thresholds: form.thresholds,
-							prices: form.prices,
-							pricesOffPeak: form.pricesOffPeak,
-							warningThreshold: Number(form.warningThreshold),
-							dangerThreshold: Number(form.dangerThreshold),
-							refreshIntervalMs: Number(form.refreshIntervalMs),
-							clientPollIntervalMs: Number(form.clientPollIntervalMs),
-							timeoutMs: Number(form.timeoutMs)
-						})
+						body: JSON.stringify(payload)
 					});
 					const data = await res.json();
 					if (data.ok) {
@@ -1367,25 +1375,57 @@ window.__ModuleLoader__.load({
 				]);
 			}
 
-			// 2. 本会话消耗读数节点与右栏卡片内容
+			// 2. 本会话消耗读数节点与右栏卡片内容 (支持前端自适应重算，保证切换币种即时响应无需刷新网页)
+			const activeCurrency = (balance.status === "ok" && balance.payload?.currency) ? balance.payload.currency : (cost?.currency ?? "CNY");
+			let calculatedCost = cost?.cost ?? 0;
+			let calculatedCostByModel = cost?.costByModel ?? {};
+
+			if (cost && balance.status === "ok" && balance.payload?.prices && cost.currency !== activeCurrency) {
+				const prices = balance.payload.prices;
+				const defPrice = balance.payload.defaultPrices ?? { cacheHit: 0.1, cacheMiss: 1, output: 2 };
+				let sum = 0;
+				const byModel = {};
+				const models = cost.models && cost.models.length > 0 ? cost.models : ["unknown"];
+				for (const m of models) {
+					const rate = prices[m] ?? defPrice;
+					const b = cost.tokensByModel?.[m] ?? (models.length === 1 && cost.tokens ? {
+						uncachedInputTokens: cost.tokens.uncachedInput,
+						cacheReadTokens: cost.tokens.cacheRead,
+						cacheWriteTokens: cost.tokens.cacheWrite,
+						outputTokens: cost.tokens.output
+					} : null);
+					if (b) {
+						const c = ((b.uncachedInputTokens + (b.cacheWriteTokens ?? 0)) * rate.cacheMiss +
+							b.cacheReadTokens * rate.cacheHit +
+							b.outputTokens * rate.output) / 1e6;
+						if (c > 0) byModel[m] = Math.round(c * 1e6) / 1e6;
+						sum += c;
+					}
+				}
+				if (sum > 0) {
+					calculatedCost = Math.round(sum * 1e6) / 1e6;
+					calculatedCostByModel = byModel;
+				}
+			}
+
 			let costNode = null;
-			const hasCost = cost !== undefined && cost.cost > 0;
+			const hasCost = cost !== undefined && calculatedCost > 0;
 			if (hasCost) {
-				const amount = formatMoney(cost.cost, cost.currency ?? "CNY");
+				const amount = formatMoney(calculatedCost, activeCurrency);
 				costNode = react.createElement("span", { className: "dshqb_amount", key: "cost" }, t("sessionCost", { amount }));
 			}
 
 			const rightCol = react.createElement("div", { className: "dshqb_col", key: "right" }, [
 				react.createElement("div", { className: "dshqb_card_header", key: "head" }, [
 					react.createElement("span", { key: "title" }, t("card.sessionTitle")),
-					react.createElement("span", { className: "dshqb_card_val_main", key: "val" }, hasCost ? formatMoney(cost.cost, cost.currency ?? "CNY") : formatMoney(0, cost?.currency ?? "CNY"))
+					react.createElement("span", { className: "dshqb_card_val_main", key: "val" }, hasCost ? formatMoney(calculatedCost, activeCurrency) : formatMoney(0, activeCurrency))
 				]),
 				hasCost
 					? react.createElement("ul", { className: "dshqb_card_models", key: "models" },
-						(cost.models ?? []).filter((m) => (cost.costByModel[m] ?? 0) > 0).map((m, i) =>
+						(cost.models ?? []).filter((m) => (calculatedCostByModel[m] ?? 0) > 0).map((m, i) =>
 							react.createElement("li", { key: i }, [
 								react.createElement("span", { key: "m" }, "• " + (m === "unknown" ? t("model.unknown") : m)),
-								react.createElement("span", { key: "c" }, formatMoney(cost.costByModel[m], cost.currency ?? "CNY"))
+								react.createElement("span", { key: "c" }, formatMoney(calculatedCostByModel[m], activeCurrency))
 							])
 						)
 					)

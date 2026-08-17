@@ -64,28 +64,83 @@ view = def.view(state)
 def.schema.parse(view)
 assert.equal(view.costByModel['unknown'], 0.0002)
 
-// 验证 resolveModelPrice 优先级与多币种能力
+// 验证 Bug 5: 同步骤同 (turn, step) 替换样本发生模型切换时的 token 减法与 Zod 校验
+let switchState = def.init()
+switchState = def.apply(switchState, {
+  type: 'request/context',
+  data: { model: 'model-A' },
+})
+switchState = def.apply(switchState, {
+  type: 'assistant/chunk',
+  data: {
+    turn: 0,
+    step: 0,
+    chunk: { type: 'usage', usage: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+  },
+})
+// 同一步骤 (turn 0, step 0) 切换为 model-B 报告样本
+switchState = def.apply(switchState, {
+  type: 'request/context',
+  data: { model: 'model-B' },
+})
+switchState = def.apply(switchState, {
+  type: 'assistant/message',
+  data: {
+    turn: 0,
+    step: 0,
+    usage: { inputTokens: 200, outputTokens: 80, cacheReadTokens: 0, cacheWriteTokens: 0 },
+  },
+})
+const switchView = def.view(switchState)
+def.schema.parse(switchView) // 验证无负数且 schema 校验通过
+assert.equal(switchView.tokens.uncachedInput, 200, 'uncachedInput should be 200 (model-A replaced by model-B)')
+assert.equal(switchView.tokens.output, 80, 'output should be 80')
+assert.equal(switchView.costByModel['model-A'], undefined, 'model-A should have 0 cost and be omitted from costByModel')
+assert.ok(switchView.costByModel['model-B'] > 0, 'model-B should have positive cost')
+console.log('Model switch in same step replacement test passed (Bug 5 verified)')
+
+// 验证 resolveModelPrice 优先级与多币种能力 (Bug 1 费率回退规则)
 // 1. 用户显式覆盖 V4 模型价格
 const customPriceConfig = {
   currency: 'CNY',
   prices: {
     'deepseek-v4-flash': { cacheHit: 0.01, cacheMiss: 0.5, output: 1.0 },
+    'custom-standard-model': { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 },
+  },
+  pricesOffPeak: {
+    'custom-discount-model': { cacheHit: 0.02, cacheMiss: 0.4, output: 0.8 },
   },
   defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 },
 }
 const priceCustom = resolveModelPrice(customPriceConfig, 'deepseek-v4-flash')
 assert.deepEqual(priceCustom, { cacheHit: 0.01, cacheMiss: 0.5, output: 1.0 }, 'Custom price must override dynamic table')
 
-// 2. USD 币种下的动态时间感知计费 (峰时 10:00 BJT)
+// 2. 验证 Bug 1 谷时与峰时回退行为:
+// 峰时: 只配置在 prices 的自定义模型命中 prices
+const peakTime = new Date('2026-08-18T02:00:00Z').getTime() // 10:00 BJT -> 峰时
+const priceStdPeak = resolveModelPrice(customPriceConfig, 'custom-standard-model', peakTime)
+assert.deepEqual(priceStdPeak, { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 })
+
+// 峰时: 只配置在 pricesOffPeak 的模型不会被峰时读取，回退到 defaultPrices
+const priceDiscPeak = resolveModelPrice(customPriceConfig, 'custom-discount-model', peakTime)
+assert.deepEqual(priceDiscPeak, customPriceConfig.defaultPrices)
+
+// 谷时: 只配置在 prices 的模型回退到 prices (标准价)
+const offPeakTime = new Date('2026-08-18T12:00:00Z').getTime() // 20:00 BJT -> 谷时
+const priceStdOffPeak = resolveModelPrice(customPriceConfig, 'custom-standard-model', offPeakTime)
+assert.deepEqual(priceStdOffPeak, { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 })
+
+// 谷时: 配置在 pricesOffPeak 的模型优先使用 pricesOffPeak
+const priceDiscOffPeak = resolveModelPrice(customPriceConfig, 'custom-discount-model', offPeakTime)
+assert.deepEqual(priceDiscOffPeak, { cacheHit: 0.02, cacheMiss: 0.4, output: 0.8 })
+console.log('Peak and off-peak pricing fallback symmetry test passed (Bug 1 verified)')
+
+// 3. USD 币种下的动态时间感知计费 (峰时 10:00 BJT)
 const usdConfig = { currency: 'USD', prices: {}, defaultPrices: { cacheHit: 0.01, cacheMiss: 0.1, output: 0.2 } }
-// 2026-08-18 10:00:00 BJT (UTC+8) -> UTC 02:00:00 -> 峰时
-const peakTime = new Date('2026-08-18T02:00:00Z').getTime()
 const priceUsdPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', peakTime)
 assert.deepEqual(priceUsdPeak, { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }, 'USD peak rate calculation mismatch')
 
-// 3. USD 币种下的动态时间感知计费 (谷时 20:00 BJT)
-// 2026-08-18 20:00:00 BJT (UTC+8) -> UTC 12:00:00 -> 谷时
-const offPeakTime = new Date('2026-08-18T12:00:00Z').getTime()
+// 4. USD 币种下的动态时间感知计费 (谷时 20:00 BJT)
 const priceUsdOffPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', offPeakTime)
 assert.deepEqual(priceUsdOffPeak, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'USD off-peak rate calculation mismatch')
 

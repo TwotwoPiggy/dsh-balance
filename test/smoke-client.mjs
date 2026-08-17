@@ -32,6 +32,8 @@ const ReactMock = {
   memo: (comp) => comp,
   useState: (init) => [typeof init === 'function' ? init() : init, () => {}],
   useRef: (init) => ({ current: init ?? null }),
+  useMemo: (fn) => fn(),
+  useEffect: (fn) => { fn() },
   useSyncExternalStore: (subscribe, getSnapshot) => {
     subscribe(() => {})
     return getSnapshot()
@@ -251,6 +253,64 @@ if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"
 if (!htmlGreen.includes('title="插件设置"')) throw new Error('settings button title missing')
 if (!htmlGreen.includes('aria-label="插件设置"')) throw new Error('settings button aria-label missing')
 if (!htmlGreen.includes('<svg')) throw new Error('gear svg icon missing')
+
+// 2. 验证负数金额与小数位格式化 (Bug 4 修复验证)
+mockBalanceTotal = -0.05
+const vnode = Comp(props)
+function findDot(vn) {
+  if (!vn || typeof vn !== 'object') return null
+  if (vn.props?.className?.includes('dshqb_dot')) return vn
+  const children = Array.isArray(vn.props?.children) ? vn.props.children : [vn.props?.children]
+  for (const c of children) {
+    const res = findDot(c)
+    if (res) return res
+  }
+  return null
+}
+const dot = findDot(vnode)
+if (dot?.props?.onClick) dot.props.onClick({ stopPropagation() {}, preventDefault() {} })
+await new Promise((r) => setTimeout(r, 400))
+const htmlNegative = renderToStaticMarkup(ReactMock.createElement(Comp, props))
+if (!htmlNegative.includes('-¥0.050')) throw new Error('negative balance format failed: ' + htmlNegative)
+console.log('Negative balance formatting test passed (Bug 4 verified)')
+
+// 3. 验证黄色预警状态 (warning: total 8 < 10 && >= 5)
+mockBalanceTotal = 8.00
+dot?.props?.onClick({ stopPropagation() {}, preventDefault() {} })
+await new Promise((r) => setTimeout(r, 400))
+const htmlWarning = renderToStaticMarkup(ReactMock.createElement(Comp, props))
+if (!htmlWarning.includes('dshqb_dot_warning')) throw new Error('warning dot missing for total=8.00')
+if (!htmlWarning.includes('偏低')) throw new Error('warning text missing')
+console.log('Warning status level test passed')
+
+// 4. 验证红色告急状态 (danger: total 3 < 5)
+mockBalanceTotal = 3.00
+dot?.props?.onClick({ stopPropagation() {}, preventDefault() {} })
+await new Promise((r) => setTimeout(r, 400))
+const htmlDanger = renderToStaticMarkup(ReactMock.createElement(Comp, props))
+if (!htmlDanger.includes('dshqb_dot_danger')) throw new Error('danger dot missing for total=3.00')
+if (!htmlDanger.includes('告急')) throw new Error('danger text missing')
+console.log('Danger status level test passed')
+
+// 6. 验证会话消耗在切换币种时前端即时动态自适应折算 (无需刷新网页或中断会话)
+mockIsAvailable = true
+mockBalanceTotal = 97.69
+const propsCurrencyAdapt = {
+  ...props,
+  useProjection: () => ({
+    models: ['deepseek-v4-flash'],
+    cost: 0.482, // 历史会话快照为 USD 消耗
+    costByModel: { 'deepseek-v4-flash': 0.482 },
+    tokens: { uncachedInput: 1000000, cacheRead: 500000, cacheWrite: 0, output: 200000 },
+    currency: 'USD', // 历史快照中的 USD 标记
+  }),
+}
+dot?.props?.onClick({ stopPropagation() {}, preventDefault() {} })
+await new Promise((r) => setTimeout(r, 400))
+const htmlDynamicCurrency = renderToStaticMarkup(ReactMock.createElement(Comp, propsCurrencyAdapt))
+if (htmlDynamicCurrency.includes('$0.482')) throw new Error('stale USD cost should be re-calculated to active currency CNY')
+if (!htmlDynamicCurrency.includes('本会话约 ¥')) throw new Error('dynamic cost should render CNY symbol ¥')
+console.log('Real-time currency adaptation without page refresh test passed')
 
 console.log('CLIENT SMOKE TEST PASSED (ZERO-DEPENDENCY)')
 process.exit(0)
