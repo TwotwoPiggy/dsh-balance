@@ -134,15 +134,17 @@ const priceDiscOffPeak = resolveModelPrice(customPriceConfig, 'custom-discount-m
 assert.deepEqual(priceDiscOffPeak, { cacheHit: 0.02, cacheMiss: 0.4, output: 0.8 })
 console.log('Peak and off-peak pricing fallback symmetry test passed (Bug 1 verified)')
 
-// 3. 验证周末全天空闲时段 (周六/周日即便处于 09:00~12:00 或 14:00~18:00 也属于谷时)
-const saturdayPeakHours = new Date('2026-08-22T02:00:00Z').getTime() // 周六 10:00 BJT
-const sundayPeakHours = new Date('2026-08-23T07:00:00Z').getTime()   // 周日 15:00 BJT
-assert.equal(isPeakTime(saturdayPeakHours), false, 'Saturday 10:00 BJT must be off-peak')
-assert.equal(isPeakTime(sundayPeakHours), false, 'Sunday 15:00 BJT must be off-peak')
+// 3. 验证周末全天空闲时段与生效时间分水岭 (Issue #5: 2026-08-23 00:00:00 BJT / 2026-08-22T16:00:00Z 生效)
+// Issue #5 关键钉时刻验证:
+assert.equal(isPeakTime(new Date('2026-08-23T01:30:00Z').getTime()), false, '2026-08-23T01:30:00Z (周日 09:30 BJT) 应判 空闲')
+assert.equal(isPeakTime(new Date('2026-08-23T07:00:00Z').getTime()), false, '2026-08-23T07:00:00Z (周日 15:00 BJT) 应判 空闲')
+assert.equal(isPeakTime(new Date('2026-08-24T01:30:00Z').getTime()), true, '2026-08-24T01:30:00Z (周一 09:30 BJT) 应判 高峰')
+assert.equal(isPeakTime(new Date('2026-08-22T01:30:00Z').getTime()), true, '2026-08-22T01:30:00Z (周六 09:30 BJT 生效前) 应判 高峰')
+assert.equal(isPeakTime(new Date('2026-08-28T16:30:00Z').getTime()), false, '2026-08-28T16:30:00Z (周六 00:30 BJT, UTC 还是周五) 应判 空闲')
 
-const v4SatPrice = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash', saturdayPeakHours)
-assert.deepEqual(v4SatPrice, { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }, 'Saturday should get 50% discount')
-console.log('Weekend full-day off-peak billing test passed')
+const v4SundayPrice = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash', new Date('2026-08-23T01:30:00Z').getTime())
+assert.deepEqual(v4SundayPrice, { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }, 'Weekend after effective date should get 50% discount')
+console.log('Issue #5 pinned timestamps & weekend off-peak billing tests passed')
 
 // 4. 验证 isPeakTime 详细时间矩阵与跨时区边界测试
 // 周一至周五工作日峰时测试
@@ -155,7 +157,7 @@ assert.equal(isPeakTime(new Date('2026-08-24T09:59:59Z').getTime()), true, 'Mon 
 assert.equal(isPeakTime(new Date('2026-08-24T10:00:00Z').getTime()), false, 'Mon 18:00:00 BJT is off-peak')
 
 // 跨 UTC 日期转换测试 (UTC 周五晚上 20:00 -> 北京时间周六 04:00)
-assert.equal(isPeakTime(new Date('2026-08-21T20:00:00Z').getTime()), false, 'UTC Fri 20:00 = BJT Sat 04:00 -> off-peak')
+assert.equal(isPeakTime(new Date('2026-08-28T20:00:00Z').getTime()), false, 'UTC Fri 20:00 = BJT Sat 04:00 -> off-peak')
 // 跨 UTC 日期转换测试 (UTC 周日晚上 20:00 -> 北京时间周一 04:00)
 assert.equal(isPeakTime(new Date('2026-08-23T20:00:00Z').getTime()), false, 'UTC Sun 20:00 = BJT Mon 04:00 -> off-peak')
 console.log('Timezone boundary and peak/off-peak matrix tests passed')

@@ -110,10 +110,13 @@ export const V4_RATES = {
   },
 }
 
+/** 周末全天空闲特惠生效时刻: 北京时间 2026-08-23 00:00:00 (UTC 2026-08-22T16:00:00Z) */
+export const WEEKEND_OFF_PEAK_EFFECTIVE_TIMESTAMP = Date.UTC(2026, 7, 22, 16, 0, 0)
+
 /**
  * 判定指定时间戳是否处于 DeepSeek 计费高峰时段。
- * 高峰时段: 北京时间 (UTC+8) 周一至周五 09:00~12:00, 14:00~18:00。
- * 其余时段 (工作日其他时间及周末全天) 均为谷时特惠 / 空闲时段 (5折)。
+ * - 2026-08-23 00:00:00 (BJT) 起: 高峰时段为周一至周五 09:00~12:00, 14:00~18:00 (其余工作日时段及周末全天为 5折 空闲特惠)；
+ * - 2026-08-23 00:00:00 (BJT) 前 (历史数据兼容): 每日 09:00~12:00, 14:00~18:00 均为高峰段。
  */
 export const isPeakTime = (timestamp = Date.now()) => {
   const ts = typeof timestamp === 'number'
@@ -123,9 +126,16 @@ export const isPeakTime = (timestamp = Date.now()) => {
   const bjtDate = new Date(ts + 8 * 60 * 60 * 1000)
   const day = bjtDate.getUTCDay() // 0 是周日, 1-5 是周一到周五, 6 是周六
   const hour = bjtDate.getUTCHours()
-  const isWeekday = day >= 1 && day <= 5
-  if (!isWeekday) return false
-  return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+  const inPeakHours = (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+  if (!inPeakHours) return false
+
+  // 2026-08-23 00:00 BJT 起周末全天空闲特惠; 生效前历史周末仍保持高峰段计费
+  if (ts >= WEEKEND_OFF_PEAK_EFFECTIVE_TIMESTAMP) {
+    const isWeekday = day >= 1 && day <= 5
+    return isWeekday
+  }
+
+  return true
 }
 
 /**
