@@ -3,7 +3,7 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection, resolveModelPrice } from '../src/index.js'
+import { makeCostProjection, resolveModelPrice, isPeakTime } from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -115,9 +115,8 @@ const customPriceConfig = {
 const priceCustom = resolveModelPrice(customPriceConfig, 'deepseek-v4-flash')
 assert.deepEqual(priceCustom, { cacheHit: 0.01, cacheMiss: 0.5, output: 1.0 }, 'Custom price must override dynamic table')
 
-// 2. 验证 Bug 1 谷时与峰时回退行为:
-// 峰时: 只配置在 prices 的自定义模型命中 prices
-const peakTime = new Date('2026-08-18T02:00:00Z').getTime() // 10:00 BJT -> 峰时
+// 2. 验证谷时与峰时回退行为 (周二工作日 10:00 BJT -> 峰时)
+const peakTime = new Date('2026-08-18T02:00:00Z').getTime() // 周二 10:00 BJT -> 峰时
 const priceStdPeak = resolveModelPrice(customPriceConfig, 'custom-standard-model', peakTime)
 assert.deepEqual(priceStdPeak, { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 })
 
@@ -125,8 +124,8 @@ assert.deepEqual(priceStdPeak, { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 })
 const priceDiscPeak = resolveModelPrice(customPriceConfig, 'custom-discount-model', peakTime)
 assert.deepEqual(priceDiscPeak, customPriceConfig.defaultPrices)
 
-// 谷时: 只配置在 prices 的模型回退到 prices (标准价)
-const offPeakTime = new Date('2026-08-18T12:00:00Z').getTime() // 20:00 BJT -> 谷时
+// 谷时 (周二 20:00 BJT): 只配置在 prices 的模型回退到 prices (标准价)
+const offPeakTime = new Date('2026-08-18T12:00:00Z').getTime() // 周二 20:00 BJT -> 谷时
 const priceStdOffPeak = resolveModelPrice(customPriceConfig, 'custom-standard-model', offPeakTime)
 assert.deepEqual(priceStdOffPeak, { cacheHit: 0.05, cacheMiss: 0.8, output: 1.5 })
 
@@ -135,12 +134,38 @@ const priceDiscOffPeak = resolveModelPrice(customPriceConfig, 'custom-discount-m
 assert.deepEqual(priceDiscOffPeak, { cacheHit: 0.02, cacheMiss: 0.4, output: 0.8 })
 console.log('Peak and off-peak pricing fallback symmetry test passed (Bug 1 verified)')
 
-// 3. USD 币种下的动态时间感知计费 (峰时 10:00 BJT)
+// 3. 验证周末全天空闲时段 (周六/周日即便处于 09:00~12:00 或 14:00~18:00 也属于谷时)
+const saturdayPeakHours = new Date('2026-08-22T02:00:00Z').getTime() // 周六 10:00 BJT
+const sundayPeakHours = new Date('2026-08-23T07:00:00Z').getTime()   // 周日 15:00 BJT
+assert.equal(isPeakTime(saturdayPeakHours), false, 'Saturday 10:00 BJT must be off-peak')
+assert.equal(isPeakTime(sundayPeakHours), false, 'Sunday 15:00 BJT must be off-peak')
+
+const v4SatPrice = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash', saturdayPeakHours)
+assert.deepEqual(v4SatPrice, { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 }, 'Saturday should get 50% discount')
+console.log('Weekend full-day off-peak billing test passed')
+
+// 4. 验证 isPeakTime 详细时间矩阵与跨时区边界测试
+// 周一至周五工作日峰时测试
+assert.equal(isPeakTime(new Date('2026-08-24T01:00:00Z').getTime()), true, 'Mon 09:00 BJT is peak')
+assert.equal(isPeakTime(new Date('2026-08-24T03:59:59Z').getTime()), true, 'Mon 11:59:59 BJT is peak')
+assert.equal(isPeakTime(new Date('2026-08-24T04:00:00Z').getTime()), false, 'Mon 12:00:00 BJT is off-peak')
+assert.equal(isPeakTime(new Date('2026-08-24T05:59:59Z').getTime()), false, 'Mon 13:59:59 BJT is off-peak')
+assert.equal(isPeakTime(new Date('2026-08-24T06:00:00Z').getTime()), true, 'Mon 14:00:00 BJT is peak')
+assert.equal(isPeakTime(new Date('2026-08-24T09:59:59Z').getTime()), true, 'Mon 17:59:59 BJT is peak')
+assert.equal(isPeakTime(new Date('2026-08-24T10:00:00Z').getTime()), false, 'Mon 18:00:00 BJT is off-peak')
+
+// 跨 UTC 日期转换测试 (UTC 周五晚上 20:00 -> 北京时间周六 04:00)
+assert.equal(isPeakTime(new Date('2026-08-21T20:00:00Z').getTime()), false, 'UTC Fri 20:00 = BJT Sat 04:00 -> off-peak')
+// 跨 UTC 日期转换测试 (UTC 周日晚上 20:00 -> 北京时间周一 04:00)
+assert.equal(isPeakTime(new Date('2026-08-23T20:00:00Z').getTime()), false, 'UTC Sun 20:00 = BJT Mon 04:00 -> off-peak')
+console.log('Timezone boundary and peak/off-peak matrix tests passed')
+
+// 5. USD 币种下的动态时间感知计费 (工作日峰时 10:00 BJT)
 const usdConfig = { currency: 'USD', prices: {}, defaultPrices: { cacheHit: 0.01, cacheMiss: 0.1, output: 0.2 } }
 const priceUsdPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', peakTime)
 assert.deepEqual(priceUsdPeak, { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }, 'USD peak rate calculation mismatch')
 
-// 4. USD 币种下的动态时间感知计费 (谷时 20:00 BJT)
+// 6. USD 币种下的动态时间感知计费 (谷时 20:00 BJT)
 const priceUsdOffPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', offPeakTime)
 assert.deepEqual(priceUsdOffPeak, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'USD off-peak rate calculation mismatch')
 

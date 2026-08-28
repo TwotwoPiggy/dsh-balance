@@ -111,6 +111,24 @@ export const V4_RATES = {
 }
 
 /**
+ * 判定指定时间戳是否处于 DeepSeek 计费高峰时段。
+ * 高峰时段: 北京时间 (UTC+8) 周一至周五 09:00~12:00, 14:00~18:00。
+ * 其余时段 (工作日其他时间及周末全天) 均为谷时特惠 / 空闲时段 (5折)。
+ */
+export const isPeakTime = (timestamp = Date.now()) => {
+  const ts = typeof timestamp === 'number'
+    ? timestamp
+    : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
+  // 北京时间 (UTC+8): 加上 8 小时毫秒偏移后按 UTC 提取星期与小时
+  const bjtDate = new Date(ts + 8 * 60 * 60 * 1000)
+  const day = bjtDate.getUTCDay() // 0 是周日, 1-5 是周一到周五, 6 是周六
+  const hour = bjtDate.getUTCHours()
+  const isWeekday = day >= 1 && day <= 5
+  if (!isWeekday) return false
+  return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+}
+
+/**
  * 实时计算指定模型在指定时间戳下的单价。
  * 优先级:
  * 1. 峰时优先匹配 config.prices[model]，谷时优先匹配 config.pricesOffPeak[model]；
@@ -120,10 +138,8 @@ export const V4_RATES = {
 export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now()) => {
   const config = typeof configOrGetter === 'function' ? configOrGetter() : configOrGetter
 
-  // 1. 北京时间 (UTC+8) 峰时段: 09:00~12:00, 14:00~18:00; 其余时段为谷时特惠 (5折)
-  const d = new Date(timestamp)
-  const hourBJT = (d.getUTCHours() + 8) % 24
-  const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+  // 1. 北京时间 (UTC+8) 峰时段: 周一至周五 09:00~12:00, 14:00~18:00; 其余时段 (含周末全天) 为谷时特惠 (5折)
+  const isPeak = isPeakTime(timestamp)
 
   if (isPeak) {
     if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
@@ -479,9 +495,7 @@ export function apply(ctx, config) {
   }
 
   const getSanitizedConfig = () => {
-    const d = new Date()
-    const hourBJT = (d.getUTCHours() + 8) % 24
-    const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+    const isPeak = isPeakTime()
     const currency = typeof runtimeConfig.currency === 'string' && runtimeConfig.currency.toUpperCase() === 'USD' ? 'USD' : 'CNY'
     const table = V4_RATES[currency] ?? V4_RATES.CNY
 
@@ -521,9 +535,7 @@ export function apply(ctx, config) {
   // 可选 webServer: 提供浏览器读取的缓存端点与设置端点
   ctx.inject(['webServer'], (webCtx) => {
     const serialize = () => {
-      const d = new Date()
-      const hourBJT = (d.getUTCHours() + 8) % 24
-      const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+      const isPeak = isPeakTime()
 
       const activeThresholds = resolveThresholds(runtimeConfig, runtimeConfig.currency)
 
