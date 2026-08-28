@@ -111,6 +111,24 @@ export const V4_RATES = {
 }
 
 /**
+ * 判定指定时间戳是否处于 DeepSeek 计费高峰时段。
+ * 高峰时段: 北京时间 (UTC+8) 周一至周五 09:00~12:00, 14:00~18:00。
+ * 其余时段 (工作日其他时间及周末全天) 均为谷时特惠 / 空闲时段 (5折)。
+ */
+export const isPeakTime = (timestamp = Date.now()) => {
+  const ts = typeof timestamp === 'number'
+    ? timestamp
+    : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
+  // 北京时间 (UTC+8): 加上 8 小时毫秒偏移后按 UTC 提取星期与小时
+  const bjtDate = new Date(ts + 8 * 60 * 60 * 1000)
+  const day = bjtDate.getUTCDay() // 0 是周日, 1-5 是周一到周五, 6 是周六
+  const hour = bjtDate.getUTCHours()
+  const isWeekday = day >= 1 && day <= 5
+  if (!isWeekday) return false
+  return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+}
+
+/**
  * 实时计算指定模型在指定时间戳下的单价。
  * 优先级:
  * 1. 峰时优先匹配 config.prices[model]，谷时优先匹配 config.pricesOffPeak[model]；
@@ -120,10 +138,8 @@ export const V4_RATES = {
 export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now()) => {
   const config = typeof configOrGetter === 'function' ? configOrGetter() : configOrGetter
 
-  // 1. 北京时间 (UTC+8) 峰时段: 09:00~12:00, 14:00~18:00; 其余时段为谷时特惠 (5折)
-  const d = new Date(timestamp)
-  const hourBJT = (d.getUTCHours() + 8) % 24
-  const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+  // 1. 北京时间 (UTC+8) 峰时段: 周一至周五 09:00~12:00, 14:00~18:00; 其余时段 (含周末全天) 为谷时特惠 (5折)
+  const isPeak = isPeakTime(timestamp)
 
   if (isPeak) {
     if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
@@ -209,6 +225,12 @@ export const makeCostProjection = (configOrGetter) => {
         cacheWrite: z.number().int().nonnegative(),
         output: z.number().int().nonnegative(),
       }).strict(),
+      tokensByModel: z.record(z.string(), z.object({
+        uncachedInputTokens: z.number().int().nonnegative(),
+        cacheReadTokens: z.number().int().nonnegative(),
+        cacheWriteTokens: z.number().int().nonnegative(),
+        outputTokens: z.number().int().nonnegative(),
+      }).strict()).optional(),
       currency: z.string(),
     }).strict(),
     init: () => ({ currentModel: null, last: null, byModel: {}, modelOrder: [] }),
@@ -279,6 +301,7 @@ export const makeCostProjection = (configOrGetter) => {
         cost: round6(cost),
         costByModel,
         tokens,
+        tokensByModel: state.byModel,
         currency: cfg.currency,
       }
     },
@@ -286,24 +309,47 @@ export const makeCostProjection = (configOrGetter) => {
   }
 }
 
-/** 读取 HTTP POST JSON Body */
-const readJsonBody = (req) => new Promise((resolve, reject) => {
+/** 读取 HTTP POST JSON Body (带 1MB 大小限制与默认 10 秒超时保护) */
+const readJsonBody = (req, timeoutMs = 10000) => new Promise((resolve, reject) => {
+  let settled = false
   let body = ''
+  const timer = setTimeout(() => {
+    if (settled) return
+    settled = true
+    if (typeof req.destroy === 'function') req.destroy()
+    reject(new Error('Request body timeout'))
+  }, timeoutMs)
+
+  const cleanup = () => {
+    clearTimeout(timer)
+  }
+
   req.on('data', (chunk) => {
+    if (settled) return
     body += chunk
     if (body.length > 1e6) {
-      req.destroy()
+      settled = true
+      cleanup()
+      if (typeof req.destroy === 'function') req.destroy()
       reject(new Error('Payload too large'))
     }
   })
   req.on('end', () => {
+    if (settled) return
+    settled = true
+    cleanup()
     try {
       resolve(body ? JSON.parse(body) : {})
     } catch {
       reject(new Error('Invalid JSON'))
     }
   })
-  req.on('error', reject)
+  req.on('error', (err) => {
+    if (settled) return
+    settled = true
+    cleanup()
+    reject(err)
+  })
 })
 
 export function apply(ctx, config) {
@@ -317,25 +363,19 @@ export function apply(ctx, config) {
     clientPollIntervalMs: config.clientPollIntervalMs ?? 30000,
     timeoutMs: config.timeoutMs ?? 8000,
     currency: initialCurrency,
-    thresholds: {
-      CNY: {
-        warning: typeof config.thresholds?.CNY?.warning === 'number'
-          ? config.thresholds.CNY.warning
-          : (typeof config.warningThreshold === 'number' ? config.warningThreshold : DEFAULT_THRESHOLDS_BY_CURRENCY.CNY.warning),
-        danger: typeof config.thresholds?.CNY?.danger === 'number'
-          ? config.thresholds.CNY.danger
-          : (typeof config.dangerThreshold === 'number' ? config.dangerThreshold : DEFAULT_THRESHOLDS_BY_CURRENCY.CNY.danger),
-      },
-      USD: {
-        warning: typeof config.thresholds?.USD?.warning === 'number'
-          ? config.thresholds.USD.warning
-          : DEFAULT_THRESHOLDS_BY_CURRENCY.USD.warning,
-        danger: typeof config.thresholds?.USD?.danger === 'number'
-          ? config.thresholds.USD.danger
-          : DEFAULT_THRESHOLDS_BY_CURRENCY.USD.danger,
-      },
-      ...(config.thresholds ?? {}),
-    },
+    thresholds: (() => {
+      const result = {}
+      if (config.thresholds && typeof config.thresholds === 'object') {
+        for (const [cur, val] of Object.entries(config.thresholds)) {
+          if (val && typeof val === 'object') {
+            result[cur.toUpperCase()] = resolveThresholds(config, cur)
+          }
+        }
+      }
+      if (!result.CNY) result.CNY = resolveThresholds(config, 'CNY')
+      if (!result.USD) result.USD = resolveThresholds(config, 'USD')
+      return result
+    })(),
     warningThreshold: config.warningThreshold ?? 10,
     dangerThreshold: config.dangerThreshold ?? 5,
     prices: { ...(config.prices ?? {}) },
@@ -444,10 +484,18 @@ export function apply(ctx, config) {
     return k.slice(0, 4) + '****' + k.slice(-4)
   }
 
+  const getAllThresholds = (cfg) => {
+    const res = {}
+    for (const cur of Object.keys(cfg.thresholds ?? {})) {
+      res[cur] = resolveThresholds(cfg, cur)
+    }
+    if (!res.CNY) res.CNY = resolveThresholds(cfg, 'CNY')
+    if (!res.USD) res.USD = resolveThresholds(cfg, 'USD')
+    return res
+  }
+
   const getSanitizedConfig = () => {
-    const d = new Date()
-    const hourBJT = (d.getUTCHours() + 8) % 24
-    const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+    const isPeak = isPeakTime()
     const currency = typeof runtimeConfig.currency === 'string' && runtimeConfig.currency.toUpperCase() === 'USD' ? 'USD' : 'CNY'
     const table = V4_RATES[currency] ?? V4_RATES.CNY
 
@@ -476,10 +524,7 @@ export function apply(ctx, config) {
       currency: runtimeConfig.currency,
       warningThreshold: activeThresholds.warning,
       dangerThreshold: activeThresholds.danger,
-      thresholds: {
-        CNY: resolveThresholds(runtimeConfig, 'CNY'),
-        USD: resolveThresholds(runtimeConfig, 'USD'),
-      },
+      thresholds: getAllThresholds(runtimeConfig),
       isPeak,
       prices: peakPrices,
       pricesOffPeak: offPeakPrices,
@@ -490,9 +535,7 @@ export function apply(ctx, config) {
   // 可选 webServer: 提供浏览器读取的缓存端点与设置端点
   ctx.inject(['webServer'], (webCtx) => {
     const serialize = () => {
-      const d = new Date()
-      const hourBJT = (d.getUTCHours() + 8) % 24
-      const isPeak = (hourBJT >= 9 && hourBJT < 12) || (hourBJT >= 14 && hourBJT < 18)
+      const isPeak = isPeakTime()
 
       const activeThresholds = resolveThresholds(runtimeConfig, runtimeConfig.currency)
 
@@ -504,15 +547,12 @@ export function apply(ctx, config) {
         currency: runtimeConfig.currency,
         isPeak,
         thresholds: activeThresholds,
-        thresholdsByCurrency: {
-          CNY: resolveThresholds(runtimeConfig, 'CNY'),
-          USD: resolveThresholds(runtimeConfig, 'USD'),
-        },
+        thresholdsByCurrency: getAllThresholds(runtimeConfig),
         // 定价表随响应动态下发 (内置 8月17日谷峰费率自动切换规则), 供客户端 "?" 图标展示
         prices: {
           'deepseek-v4-flash': resolveModelPrice(runtimeConfig, 'deepseek-v4-flash'),
           'deepseek-v4-pro': resolveModelPrice(runtimeConfig, 'deepseek-v4-pro'),
-          ...(isPeak ? runtimeConfig.prices : runtimeConfig.pricesOffPeak),
+          ...(isPeak ? runtimeConfig.prices : { ...runtimeConfig.prices, ...runtimeConfig.pricesOffPeak }),
         },
         defaultPrices: runtimeConfig.defaultPrices,
       }
@@ -581,7 +621,7 @@ export function apply(ctx, config) {
           try {
             const body = await readJsonBody(req)
             // 局部合并与类型校验
-            if (typeof body.apiKey === 'string') runtimeConfig.apiKey = body.apiKey.trim()
+            if (typeof body.apiKey === 'string' && body.apiKey.trim() !== '') runtimeConfig.apiKey = body.apiKey.trim()
             if (typeof body.apiKeyRef === 'string' && body.apiKeyRef.trim()) runtimeConfig.apiKeyRef = body.apiKeyRef.trim()
             if (typeof body.baseUrl === 'string' && body.baseUrl.trim()) runtimeConfig.baseUrl = body.baseUrl.trim()
             if (typeof body.refreshIntervalMs === 'number' && body.refreshIntervalMs >= 1000) runtimeConfig.refreshIntervalMs = body.refreshIntervalMs
