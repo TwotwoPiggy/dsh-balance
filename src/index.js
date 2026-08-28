@@ -223,98 +223,132 @@ export const makeCostProjection = (configOrGetter) => {
   const priceOf = (model) => resolveModelPrice(getConfig(), model)
   const round6 = (n) => Math.round(n * 1e6) / 1e6
 
+  const stateSchema = z.object({
+    currentModel: z.string().nullable(),
+    last: z.object({
+      turn: z.number().int(),
+      step: z.number().int(),
+      model: z.string(),
+      buckets: z.object({
+        uncachedInputTokens: z.number().int(),
+        cacheReadTokens: z.number().int(),
+        cacheWriteTokens: z.number().int(),
+        outputTokens: z.number().int(),
+      }),
+    }).nullable(),
+    byModel: z.record(z.string(), z.object({
+      uncachedInputTokens: z.number().int(),
+      cacheReadTokens: z.number().int(),
+      cacheWriteTokens: z.number().int(),
+      outputTokens: z.number().int(),
+    })),
+    modelOrder: z.array(z.string()),
+  })
+
+  const viewSchema = z.object({
+    models: z.array(z.string()),
+    cost: z.number().nonnegative(),
+    costByModel: z.record(z.string(), z.number().nonnegative()),
+    tokens: z.object({
+      uncachedInput: z.number().int().nonnegative(),
+      cacheRead: z.number().int().nonnegative(),
+      cacheWrite: z.number().int().nonnegative(),
+      output: z.number().int().nonnegative(),
+    }).strict(),
+    tokensByModel: z.record(z.string(), z.object({
+      uncachedInputTokens: z.number().int().nonnegative(),
+      cacheReadTokens: z.number().int().nonnegative(),
+      cacheWriteTokens: z.number().int().nonnegative(),
+      outputTokens: z.number().int().nonnegative(),
+    }).strict()).optional(),
+    currency: z.string(),
+  }).strict()
+
+  const view = (state) => {
+    const cfg = getConfig()
+    const tokens = { uncachedInput: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
+    const costByModel = {}
+    let cost = 0
+    for (const model of state.modelOrder) {
+      const b = state.byModel[model] ?? zero()
+      tokens.uncachedInput += b.uncachedInputTokens
+      tokens.cacheRead += b.cacheReadTokens
+      tokens.cacheWrite += b.cacheWriteTokens
+      tokens.output += b.outputTokens
+      // DeepSeek 计费: 未命中输入(含缓存写入)按 miss 价, 命中按 hit 价, 输出按 output 价。
+      // 配置价是"每 1M token"的价格, 因此除以 1e6。
+      const c = ((b.uncachedInputTokens + b.cacheWriteTokens) * priceOf(model).cacheMiss +
+        b.cacheReadTokens * priceOf(model).cacheHit +
+        b.outputTokens * priceOf(model).output) / 1e6
+      if (c > 0) costByModel[model] = round6(c)
+      cost += c
+    }
+    return {
+      models: state.modelOrder,
+      cost: round6(cost),
+      costByModel,
+      tokens,
+      tokensByModel: state.byModel,
+      currency: cfg.currency,
+    }
+  }
+
+  const apply = (state, event) => {
+    let nextModel = state.currentModel
+    if (event.type === 'request/header') {
+      const model = event.data.header?.config?.model
+      if (typeof model === 'string' && model !== '') nextModel = model
+    } else if (event.type === 'request/context') {
+      const model = event.data.model
+      if (typeof model === 'string' && model !== '') nextModel = model
+    }
+    let usage = null
+    let turn = 0
+    let step = 0
+    if (event.type === 'assistant/chunk' && event.data.chunk.type === 'usage') {
+      ({ turn, step } = event.data)
+      usage = event.data.chunk.usage
+    } else if (event.type === 'assistant/message' && event.data.usage !== undefined) {
+      ({ turn, step, usage } = event.data)
+    }
+    if (usage === null) {
+      // 与单元无关的事件: 返回同一引用(驱动以 Object.is 把关变更流)。
+      return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
+    }
+    const model = nextModel ?? 'unknown'
+    const buckets = bucketsOf(usage)
+    const previous = state.last !== null && state.last.turn === turn && state.last.step === step ? state.last : null
+    if (previous !== null && previous.model === model && bucketsEqual(previous.buckets, buckets)) {
+      return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
+    }
+    const isNewModel = !(model in state.byModel)
+    let byModel = state.byModel
+    if (previous !== null) {
+      // 同一步骤的替换样本: 先减去旧归属, 再加新归属。
+      byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model] ?? zero(), previous.buckets) }
+    }
+    byModel = { ...byModel, [model]: addBuckets(byModel[model] ?? zero(), buckets) }
+    return {
+      ...state,
+      currentModel: nextModel,
+      last: { turn, step, model, buckets },
+      byModel,
+      modelOrder: isNewModel ? [...state.modelOrder, model] : state.modelOrder,
+    }
+  }
+
   return {
     key: 'queryBalanceCost',
-    schema: z.object({
-      models: z.array(z.string()),
-      cost: z.number().nonnegative(),
-      costByModel: z.record(z.string(), z.number().nonnegative()),
-      tokens: z.object({
-        uncachedInput: z.number().int().nonnegative(),
-        cacheRead: z.number().int().nonnegative(),
-        cacheWrite: z.number().int().nonnegative(),
-        output: z.number().int().nonnegative(),
-      }).strict(),
-      tokensByModel: z.record(z.string(), z.object({
-        uncachedInputTokens: z.number().int().nonnegative(),
-        cacheReadTokens: z.number().int().nonnegative(),
-        cacheWriteTokens: z.number().int().nonnegative(),
-        outputTokens: z.number().int().nonnegative(),
-      }).strict()).optional(),
-      currency: z.string(),
-    }).strict(),
+    stateSchema,
     init: () => ({ currentModel: null, last: null, byModel: {}, modelOrder: [] }),
-    apply: (state, event) => {
-      let nextModel = state.currentModel
-      if (event.type === 'request/header') {
-        const model = event.data.header?.config?.model
-        if (typeof model === 'string' && model !== '') nextModel = model
-      } else if (event.type === 'request/context') {
-        const model = event.data.model
-        if (typeof model === 'string' && model !== '') nextModel = model
-      }
-      let usage = null
-      let turn = 0
-      let step = 0
-      if (event.type === 'assistant/chunk' && event.data.chunk.type === 'usage') {
-        ({ turn, step } = event.data)
-        usage = event.data.chunk.usage
-      } else if (event.type === 'assistant/message' && event.data.usage !== undefined) {
-        ({ turn, step, usage } = event.data)
-      }
-      if (usage === null) {
-        // 与单元无关的事件: 返回同一引用(驱动以 Object.is 把关变更流)。
-        return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
-      }
-      const model = nextModel ?? 'unknown'
-      const buckets = bucketsOf(usage)
-      const previous = state.last !== null && state.last.turn === turn && state.last.step === step ? state.last : null
-      if (previous !== null && previous.model === model && bucketsEqual(previous.buckets, buckets)) {
-        return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
-      }
-      const isNewModel = !(model in state.byModel)
-      let byModel = state.byModel
-      if (previous !== null) {
-        // 同一步骤的替换样本: 先减去旧归属, 再加新归属。
-        byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model] ?? zero(), previous.buckets) }
-      }
-      byModel = { ...byModel, [model]: addBuckets(byModel[model] ?? zero(), buckets) }
-      return {
-        ...state,
-        currentModel: nextModel,
-        last: { turn, step, model, buckets },
-        byModel,
-        modelOrder: isNewModel ? [...state.modelOrder, model] : state.modelOrder,
-      }
+    apply,
+    wire: {
+      viewSchema,
+      view,
     },
-    view: (state) => {
-      const cfg = getConfig()
-      const tokens = { uncachedInput: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
-      const costByModel = {}
-      let cost = 0
-      for (const model of state.modelOrder) {
-        const b = state.byModel[model] ?? zero()
-        tokens.uncachedInput += b.uncachedInputTokens
-        tokens.cacheRead += b.cacheReadTokens
-        tokens.cacheWrite += b.cacheWriteTokens
-        tokens.output += b.outputTokens
-        // DeepSeek 计费: 未命中输入(含缓存写入)按 miss 价, 命中按 hit 价, 输出按 output 价。
-        // 配置价是"每 1M token"的价格, 因此除以 1e6。
-        const c = ((b.uncachedInputTokens + b.cacheWriteTokens) * priceOf(model).cacheMiss +
-          b.cacheReadTokens * priceOf(model).cacheHit +
-          b.outputTokens * priceOf(model).output) / 1e6
-        if (c > 0) costByModel[model] = round6(c)
-        cost += c
-      }
-      return {
-        models: state.modelOrder,
-        cost: round6(cost),
-        costByModel,
-        tokens,
-        tokensByModel: state.byModel,
-        currency: cfg.currency,
-      }
-    },
+    // 向后兼容内部测试与旧调用
+    view,
+    schema: viewSchema,
     stateVersion: 1,
   }
 }

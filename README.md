@@ -256,6 +256,16 @@ A: **完全会自动同步！** 插件内部已植入时间感知计费引擎（
 
 ## 📝 更新日志 (Changelog)
 
+### v0.2.5 (2026-08-29)
+
+- 🐛 **会话花费投影契约适配与修复 (Fix [#6](https://github.com/TwotwoPiggy/dsh-balance/issues/6))**：
+  - 全面适配 dsh 0.1.1-rc.2 的 `sessionProjections.register` 注册契约，将旧的平铺字段规范化拆分为 `stateSchema`（折叠状态校验 Schema）与 `wire: { viewSchema, view }`；
+  - 彻底解决因缺少 `wire` 导致单元被底层识别为 `host-only`、`session.history` 尾页投影块不输出 `queryBalanceCost` 且不推送 `session/projection` 变更帧的重大 Bug；
+  - 保持 `stateVersion: 1` 且 `stateSchema` 与既有折叠状态形状严格对齐，无损兼容既有会话缓存检查点（`~/.dsh/storages/session_projcache.json`）；
+  - 保留顶层 `view` 与 `schema` 别名，确保向后兼容与测试桩无缝对接。
+
+---
+
 ### v0.2.4 (2026-08-29)
 
 - 🔒 **完善周末计费生效时间分水岭 (Fix [#5](https://github.com/TwotwoPiggy/dsh-balance/issues/5))**：

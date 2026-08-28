@@ -16,7 +16,15 @@ const config = {
 }
 const def = makeCostProjection(config)
 
+// 验证 dsh 0.1.1-rc.2 契约字段 (stateSchema + wire: { viewSchema, view } + stateVersion)
+assert.ok(def.stateSchema, 'stateSchema must be provided')
+assert.ok(def.wire, 'wire must be provided for client-visible projection')
+assert.ok(def.wire.viewSchema, 'wire.viewSchema must be provided')
+assert.equal(typeof def.wire.view, 'function', 'wire.view must be a function')
+assert.equal(def.stateVersion, 1, 'stateVersion must be 1')
+
 let state = def.init()
+def.stateSchema.parse(state) // 校验初始状态符合 stateSchema
 
 // 无关事件必须返回同一引用(变更流靠 Object.is 把关)
 const untouched = def.apply(state, { type: 'turn/start', data: { turn: 0 } })
@@ -25,6 +33,7 @@ assert.equal(untouched, state, 'unrelated event must keep same reference')
 // 模型来自 request/header
 state = def.apply(state, { type: 'request/header', data: { header: { config: { model: 'deepseek-chat' } } } })
 assert.notEqual(state, untouched)
+def.stateSchema.parse(state)
 
 // usage chunk(早期样本)
 state = def.apply(state, {
@@ -36,6 +45,7 @@ state = def.apply(state, {
   type: 'assistant/message',
   data: { turn: 0, step: 0, message: {}, usage: { inputTokens: 100, outputTokens: 60, cacheReadTokens: 60, cacheWriteTokens: 10 } },
 })
+def.stateSchema.parse(state)
 
 // 模型切换: request/context 指向 reasoner, 新样本归入 reasoner
 state = def.apply(state, { type: 'request/context', data: { provider: 'deepseek', model: 'deepseek-reasoner' } })
@@ -43,9 +53,11 @@ state = def.apply(state, {
   type: 'assistant/message',
   data: { turn: 0, step: 1, message: {}, usage: { inputTokens: 200, outputTokens: 40, cacheReadTokens: 0, cacheWriteTokens: 0 } },
 })
+def.stateSchema.parse(state)
 
-let view = def.view(state)
-def.schema.parse(view) // schema 校验
+let view = def.wire.view(state)
+def.wire.viewSchema.parse(view) // wire.viewSchema 校验
+def.schema.parse(view) // 向后兼容 schema 别名校验
 console.log('view:', JSON.stringify(view))
 
 assert.deepEqual(view.tokens, { uncachedInput: 300, cacheRead: 60, cacheWrite: 10, output: 100 })
@@ -60,6 +72,7 @@ assert.equal(view.currency, 'CNY')
 // 未知名模型使用回退价
 state = def.init()
 state = def.apply(state, { type: 'assistant/message', data: { turn: 0, step: 0, message: {}, usage: { inputTokens: 100, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } } })
+def.stateSchema.parse(state)
 view = def.view(state)
 def.schema.parse(view)
 assert.equal(view.costByModel['unknown'], 0.0002)
