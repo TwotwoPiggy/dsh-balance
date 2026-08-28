@@ -3,7 +3,7 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection, resolveModelPrice } from '../src/index.js'
+import { makeCostProjection, resolveModelPrice, isPeakTime } from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -131,7 +131,12 @@ const usdConfig = { currency: 'USD', prices: {}, defaultPrices: { cacheHit: 0.01
 const priceUsdPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', peakTime)
 assert.deepEqual(priceUsdPeak, { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }, 'USD peak rate calculation mismatch')
 
-const priceUsdOffPeak = resolveModelPrice(usdConfig, 'deepseek-v4-flash', offPeakTime)
-assert.deepEqual(priceUsdOffPeak, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'USD off-peak rate calculation mismatch')
+// 5. 验证 isPeakTime 与周末全天 5 折特惠规则
+assert.equal(isPeakTime(peakTime), true, 'Tuesday 10:00 BJT should be peak time')
+assert.equal(isPeakTime(offPeakTime), false, 'Tuesday 20:00 BJT should be off-peak time')
+const saturdayTime = new Date('2026-08-22T02:00:00Z').getTime() // 周六 10:00 BJT
+assert.equal(isPeakTime(saturdayTime), false, 'Saturday 10:00 BJT should be off-peak time')
+const priceWeekend = resolveModelPrice(usdConfig, 'deepseek-v4-flash', saturdayTime)
+assert.deepEqual(priceWeekend, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'Weekend daytime should use off-peak rate')
 
 console.log('LITE PROJECTION TEST PASSED')
