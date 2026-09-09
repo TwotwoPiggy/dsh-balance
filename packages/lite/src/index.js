@@ -78,28 +78,81 @@ export const Config = Schema.object({
   defaultPrices: ModelPrice.default({ cacheHit: 0.1, cacheMiss: 1, output: 2 }),
 })
 
-/** DeepSeek V4 官方现行定价表 (单位: 每 100 万 tokens, 支持 CNY 与 USD 谷峰费率) */
-export const V4_RATES = {
+/** Flash 系列调价正式生效时刻: 北京时间 2026-09-10 12:00:00 (UTC 2026-09-10T04:00:00Z) */
+export const FLASH_20260910_EFFECTIVE_TIMESTAMP = Date.UTC(2026, 8, 10, 4, 0, 0)
+
+/** 2026-08-16 至 2026-09-10 12:00 期间的历史 Flash 费率 (用于账单与会话历史回溯兼容) */
+export const V4_RATES_HISTORIC_202608 = {
   CNY: {
     peak: {
       'deepseek-v4-flash': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+      'deepseek-v4.1-flash': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
       'deepseek-v4-pro': { cacheHit: 0.3, cacheMiss: 9, output: 27 },
     },
     offPeak: {
       'deepseek-v4-flash': { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+      'deepseek-v4.1-flash': { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
       'deepseek-v4-pro': { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 },
     },
   },
   USD: {
     peak: {
       'deepseek-v4-flash': { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
+      'deepseek-v4.1-flash': { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
       'deepseek-v4-pro': { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 },
     },
     offPeak: {
       'deepseek-v4-flash': { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
+      'deepseek-v4.1-flash': { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
       'deepseek-v4-pro': { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 },
     },
   },
+}
+
+/** DeepSeek V4 官方现行定价表 (自北京时间 2026-09-10 12:00:00 起生效，单位: 每 100 万 tokens, 支持 CNY 与 USD 谷峰费率) */
+export const V4_RATES = {
+  CNY: {
+    peak: {
+      'deepseek-v4-flash': { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+      'deepseek-v4.1-flash': { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+      'deepseek-v4-pro': { cacheHit: 0.3, cacheMiss: 9, output: 27 },
+    },
+    offPeak: {
+      'deepseek-v4-flash': { cacheHit: 0.02, cacheMiss: 1, output: 4 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.02, cacheMiss: 1, output: 4 },
+      'deepseek-v4.1-flash': { cacheHit: 0.02, cacheMiss: 1, output: 4 },
+      'deepseek-v4-pro': { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 },
+    },
+  },
+  USD: {
+    peak: {
+      'deepseek-v4-flash': { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
+      'deepseek-v4.1-flash': { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
+      'deepseek-v4-pro': { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 },
+    },
+    offPeak: {
+      'deepseek-v4-flash': { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
+      'deepseek-v4-flash-vision-exp': { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
+      'deepseek-v4.1-flash': { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
+      'deepseek-v4-pro': { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 },
+    },
+  },
+}
+
+/** 判定模型是否属于 DeepSeek Flash 系列 (含 flash-vision-exp、v4.1-flash) */
+export const isFlashSeriesModel = (model) => {
+  if (typeof model !== 'string') return false
+  return (
+    model === 'deepseek-v4-flash' ||
+    model === 'deepseek-v4-flash-vision-exp' ||
+    model === 'deepseek-v4.1-flash'
+  )
 }
 
 /**
@@ -123,12 +176,15 @@ export const isPeakTime = (timestamp = Date.now()) => {
  * 实时计算指定模型在指定时间戳下的单价。
  * 优先级:
  * 1. 峰时优先匹配 config.prices[model]，谷时优先匹配 config.pricesOffPeak[model]；
- * 2. 若为内置 DeepSeek V4 模型 (flash / pro)，按货币 (CNY/USD) 和北京时间谷峰费率自动计算；
+ * 2. 若为内置 DeepSeek V4 模型 (flash / flash-vision-exp / pro)，按货币 (CNY/USD) 和北京时间谷峰费率自动计算 (支持 2026-09-10 12:00 分水岭历史回溯)；
  * 3. 其余未知名模型回退到 config.defaultPrices。
  */
 export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now()) => {
   const config = typeof configOrGetter === 'function' ? configOrGetter() : configOrGetter
-  const isPeak = isPeakTime(timestamp)
+  const ts = typeof timestamp === 'number'
+    ? timestamp
+    : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
+  const isPeak = isPeakTime(ts)
 
   if (isPeak) {
     if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
@@ -143,18 +199,20 @@ export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now())
     }
   }
 
-  const isV4Flash = model === 'deepseek-v4-flash'
-  const isV4Pro = model === 'deepseek-v4-pro'
+  const isFlash = isFlashSeriesModel(model)
+  const isPro = model === 'deepseek-v4-pro'
 
-  if (!isV4Flash && !isV4Pro) {
+  if (!isFlash && !isPro) {
     return config?.defaultPrices ?? { cacheHit: 0.1, cacheMiss: 1, output: 2 }
   }
 
   // 2. 根据计价货币选择对应币种的定价表 (支持 CNY / USD)
   const currency = typeof config?.currency === 'string' && config.currency.toUpperCase() === 'USD' ? 'USD' : 'CNY'
-  const table = V4_RATES[currency] ?? V4_RATES.CNY
+  const isHistoricFlash = isFlash && ts < FLASH_20260910_EFFECTIVE_TIMESTAMP
+  const table = (isHistoricFlash ? V4_RATES_HISTORIC_202608 : V4_RATES)[currency] ?? V4_RATES.CNY
+  const modelKey = table.peak[model] ? model : 'deepseek-v4-flash'
 
-  return (isPeak ? table.peak[model] : table.offPeak[model]) ?? config?.defaultPrices
+  return (isPeak ? table.peak[modelKey] : table.offPeak[modelKey]) ?? config?.defaultPrices
 }
 
 /** 归一化 DeepSeek 余额响应中的金额字符串。 */

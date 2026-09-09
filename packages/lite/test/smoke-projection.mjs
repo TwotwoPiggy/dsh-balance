@@ -152,4 +152,26 @@ assert.equal(isPeakTime(saturdayTime), false, 'Saturday 10:00 BJT should be off-
 const priceWeekend = resolveModelPrice(usdConfig, 'deepseek-v4-flash', saturdayTime)
 assert.deepEqual(priceWeekend, { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 }, 'Weekend daytime should use off-peak rate')
 
+// 6. 验证 2026-09-10 12:00 BJT Flash 降价新规与 deepseek-v4-flash-vision-exp 多模态模型计费
+const postSept10PeakTime = new Date('2026-09-11T02:00:00Z').getTime() // 周五 10:00 BJT -> 峰时
+const postSept10OffPeakTime = new Date('2026-09-11T12:00:00Z').getTime() // 周五 20:00 BJT -> 谷时
+
+const cnyNewPeakFlash = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash', postSept10PeakTime)
+assert.deepEqual(cnyNewPeakFlash, { cacheHit: 0.04, cacheMiss: 2, output: 8 }, 'Flash 2026-09-10 peak price mismatch')
+
+const cnyNewOffPeakFlash = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash', postSept10OffPeakTime)
+assert.deepEqual(cnyNewOffPeakFlash, { cacheHit: 0.02, cacheMiss: 1, output: 4 }, 'Flash 2026-09-10 off-peak price mismatch')
+
+const visionPeakPrice = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash-vision-exp', postSept10PeakTime)
+assert.deepEqual(visionPeakPrice, { cacheHit: 0.04, cacheMiss: 2, output: 8 }, 'Vision exp peak price mismatch')
+
+const visionOffPeakPrice = resolveModelPrice({ currency: 'CNY', prices: {} }, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
+assert.deepEqual(visionOffPeakPrice, { cacheHit: 0.02, cacheMiss: 1, output: 4 }, 'Vision exp off-peak price mismatch')
+
+const usdNewPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10PeakTime)
+assert.deepEqual(usdNewPeakFlash, { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 }, 'USD 2026-09-10 peak price mismatch')
+
+const usdNewOffPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
+assert.deepEqual(usdNewOffPeakFlash, { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 }, 'USD 2026-09-10 off-peak price mismatch')
+
 console.log('LITE PROJECTION TEST PASSED')

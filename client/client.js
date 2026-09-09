@@ -71,13 +71,13 @@ window.__ModuleLoader__.load({
 				".dshqb_btn_icon svg{display:block}",
 				".dshqb_btn_icon:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,0.1));transform:scale(1.1)}",
 				".dshqb_btn_icon:active{transform:scale(0.95)}",
-				".dshqb_pricing_popover{position:absolute;bottom:calc(100% + 8px);left:50%;right:auto;z-index:9999;min-width:320px;max-width:92vw;background:var(--dsw-alias-bg-layer-1,var(--dsw-hovercard-bg,var(--dsw-alias-surface-elevated,#ffffff)));border:1px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-secondary,rgba(128,128,128,0.2)));border-radius:10px;box-shadow:var(--dsw-shadow-lv3,0 12px 32px rgba(0,0,0,0.18));padding:12px 14px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;white-space:normal;text-align:left;color:var(--dsw-alias-label-primary);font-size:12px;line-height:1.5;backdrop-filter:blur(16px);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(6px);transition:opacity .18s cubic-bezier(0.16,1,0.3,1),transform .18s cubic-bezier(0.16,1,0.3,1)}",
+				".dshqb_pricing_popover{position:absolute;bottom:calc(100% + 8px);left:50%;right:auto;z-index:9999;min-width:330px;max-width:92vw;background:var(--dsw-alias-bg-layer-1,var(--dsw-hovercard-bg,var(--dsw-alias-surface-elevated,#ffffff)));border:1px solid var(--dsw-alias-border-l2,var(--dsw-alias-border-secondary,rgba(128,128,128,0.2)));border-radius:10px;box-shadow:var(--dsw-shadow-lv3,0 12px 32px rgba(0,0,0,0.18));padding:12px 14px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;white-space:normal;text-align:left;color:var(--dsw-alias-label-primary);font-size:12px;line-height:1.5;backdrop-filter:blur(16px);opacity:0;pointer-events:none;transform:translateX(-50%) translateY(6px);transition:opacity .18s cubic-bezier(0.16,1,0.3,1),transform .18s cubic-bezier(0.16,1,0.3,1)}",
 				".dshqb_pricing_popover::after{content:'';position:absolute;top:100%;left:0;right:0;height:12px;background:transparent}",
 				".dshqb_pricing_wrap:hover .dshqb_pricing_popover, .dshqb_pricing_popover:hover{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}",
 				".dshqb_pricing_models{display:flex;flex-direction:column;gap:6px}",
 				".dshqb_pricing_card_item{background:var(--dsw-alias-bg-layer-2,rgba(128,128,128,0.06));border:1px solid var(--dsw-alias-border-l3,rgba(128,128,128,0.12));border-radius:6px;padding:6px 10px;display:flex;flex-direction:column;gap:3px}",
-				".dshqb_pricing_model_name{font-weight:600;font-size:12px;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums}",
-				".dshqb_pricing_rates{font-size:11px;color:var(--dsw-alias-label-secondary);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}",
+				".dshqb_pricing_model_name{font-weight:600;font-size:12px;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;word-break:break-all}",
+				".dshqb_pricing_rates{font-size:11px;color:var(--dsw-alias-label-secondary);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;flex-wrap:wrap}",
 				".dshqb_pricing_dot{color:var(--dsw-alias-separator-primary,var(--dsw-alias-border-l3,rgba(128,128,128,0.3)))}",
 				".dshqb_pricing_schedule{font-size:10.5px;color:var(--dsw-alias-label-tertiary);line-height:1.45;padding-top:4px;border-top:1px dashed var(--dsw-alias-separator-primary,rgba(128,128,128,0.15));white-space:pre-line}",
 				".dshqb_pricing_link{color:var(--dsw-alias-brand-primary,var(--dsw-alias-accent-primary,#3b82f6));text-decoration:none;font-size:11px;display:inline-flex;align-items:center;margin-top:2px}",
@@ -458,21 +458,25 @@ window.__ModuleLoader__.load({
 		const DEFAULT_PRICES_BY_CURRENCY = {
 			CNY: {
 				peak: {
-					"deepseek-v4-flash": { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+					"deepseek-v4-flash": { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+					"deepseek-v4-flash-vision-exp": { cacheHit: 0.04, cacheMiss: 2, output: 8 },
 					"deepseek-v4-pro": { cacheHit: 0.3, cacheMiss: 9, output: 27 }
 				},
 				offPeak: {
-					"deepseek-v4-flash": { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
+					"deepseek-v4-flash": { cacheHit: 0.02, cacheMiss: 1, output: 4 },
+					"deepseek-v4-flash-vision-exp": { cacheHit: 0.02, cacheMiss: 1, output: 4 },
 					"deepseek-v4-pro": { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
 				}
 			},
 			USD: {
 				peak: {
-					"deepseek-v4-flash": { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 },
+					"deepseek-v4-flash": { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
+					"deepseek-v4-flash-vision-exp": { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
 					"deepseek-v4-pro": { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 }
 				},
 				offPeak: {
-					"deepseek-v4-flash": { cacheHit: 0.007, cacheMiss: 0.22, output: 0.66 },
+					"deepseek-v4-flash": { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
+					"deepseek-v4-flash-vision-exp": { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
 					"deepseek-v4-pro": { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 }
 				}
 			}

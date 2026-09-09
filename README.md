@@ -4,12 +4,12 @@ DeepSeek 余额实时显示插件: 在 dsh Web UI 输入框**下方、命中率/
 
 - **账户余额与充足度状态指示灯**(如 `🟢 余额 ¥97.69`, 红/黄/绿三色直观反映余额充裕状况，**点击状态圆点可直接手动强刷查询最新余额**)
 - **本次对话的估算消耗**(如 `本会话约 ¥3.92`, 按模型、按 DeepSeek 官方单价估算)
-- **`?` 定价参考图标**: 悬停以 `?` 为中心优雅浮现 **DeepSeek V4 系列专属定价微卡片**（支持 `deepseek-v4-flash` 与 `deepseek-v4-pro`），点击直达官方定价页 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing/>
+- **`?` 定价参考图标**: 悬停以 `?` 为中心优雅浮现 **DeepSeek V4 系列专属定价微卡片**（全面支持 `deepseek-v4-flash`、`deepseek-v4-flash-vision-exp` 多模态视觉模型与 `deepseek-v4-pro`），点击直达官方定价页 <https://api-docs.deepseek.com/zh-cn/quick_start/pricing/>
 
 悬停读数可查看**左右双栏毛玻璃卡片**：
 - **左栏【📊 账户余额】**：实时大字总额、充足度 Badge、充值与赠送金额构成、5分钟自动刷新时间戳点击指示灯强刷指引以及偏好设置快速入口。
 - **右栏【⚡ 本会话消耗】**：当前会话预估总花费、按模型细分明细（如 `• deepseek-v4-flash: ¥3.92`）、换行小字体展示输入/输出与缓存命中统计（如第一行 `Token: 输入 124M · 输出 301K` 与第二行 `命中: 123M (99.3%)`）。
-- **时间感知引擎**：内置 DeepSeek 谷峰计费自动切换机制（北京时间周一至周五 09:00~12:00, 14:00~18:00 为峰时 100% 计费 / 其余时段含周末全天享 5 折空闲特惠），全自动无缝同步。
+- **时间感知引擎**：内置 DeepSeek 谷峰计费自动切换机制（北京时间周一至周五 09:00~12:00, 14:00~18:00 为峰时 2 倍计费 / 其余时段含周末全天享 5 折空闲特惠），并严格对齐 2026-09-10 12:00 起生效的 Flash 最新降价分水岭，全自动无缝同步。
 
 ![示例预览图](./assets/preview.png)
 
@@ -133,11 +133,12 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 单次网络请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: CNY
     prices:
-      deepseek-v4-flash: { cacheHit: 0.1, cacheMiss: 3, output: 9 }
+      deepseek-v4-flash: { cacheHit: 0.04, cacheMiss: 2, output: 8 }
+      deepseek-v4-flash-vision-exp: { cacheHit: 0.04, cacheMiss: 2, output: 8 }
       deepseek-v4-pro: { cacheHit: 0.3, cacheMiss: 9, output: 27 }
       deepseek-chat: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
       deepseek-reasoner: { cacheHit: 1, cacheMiss: 4, output: 16 }
-    defaultPrices: { cacheHit: 0.1, cacheMiss: 1, output: 2 }
+    defaultPrices: { cacheHit: 0.04, cacheMiss: 2, output: 8 }
 ```
 
 ### 模板 2：海外美元账户（USD 计价与小额阈值）
@@ -155,9 +156,10 @@ dsh plugin --profile web remove dsh-balance
     timeoutMs: 8000               # 请求超时时间(单位: 毫秒 ms，8000ms = 8秒)
     currency: USD                 # 计价货币切换为美元
     prices:
-      deepseek-v4-flash: { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }
+      deepseek-v4-flash: { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 }
+      deepseek-v4-flash-vision-exp: { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 }
       deepseek-v4-pro: { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 }
-    defaultPrices: { cacheHit: 0.014, cacheMiss: 0.44, output: 1.32 }
+    defaultPrices: { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 }
 ```
 
 ### 模板 3：高频重度开发者（高缓冲安全档）
@@ -248,13 +250,39 @@ A:
 **Q: DeepSeek 官方谷峰与空闲时段定价规则是什么，插件会自动同步吗？**
 
 A: **完全会自动同步！** 插件内部已植入时间感知计费引擎（`resolveModelPrice` 与 `isPeakTime`）。根据官方现行规则：
-- **☀️ 高峰时段**：北京时间周一至周五 `09:00~12:00`、`14:00~18:00`（按标准 100% 价格计费）；
+- **☀️ 高峰时段**：北京时间周一至周五 `09:00~12:00`、`14:00~18:00`（按标准 2 倍价格计费）；
 - **🌙 空闲时段**：其余所有时段（包括工作日非高峰时间及**周六、周日全天**），享受 **5 折特惠**计费。
 插件在进行会话消耗折算及展示 `?` 定价卡片时会自动精准识别并实时切换，无需人工干预或修改配置。
+
+**Q: 2026 年 9 月 10 日起生效的 Flash 系列调价与新增多模态模型有哪些要点？**
+
+A: 根据 DeepSeek 官方 2026 年 9 月 10 日最新公告与文档：
+1. **Flash 系列大幅降价（2026-09-10 12:00 BJT 起）**：
+   - **空闲时段**：输入缓存命中 `0.02 元/M`、输入缓存未命中 `1.00 元/M`、输出 `4.00 元/M`；
+   - **高峰时段**：空闲时段价格的 **2 倍**（命中 `0.04 元/M`、未命中 `2.00 元/M`、输出 `8.00 元/M`）。
+   - 插件已植入精确时间分水岭，生效时刻前的历史会话仍按当时费率回溯，生效时刻后无缝应用新低价。
+2. **新增多模态实验模型 `deepseek-v4-flash-vision-exp`**：
+   - 支持图像与文本多模态输入，计费单价享受与 `deepseek-v4-flash` 完全一致的优惠费率；
+   - 定价微卡片已全面收录并直观展示该模型。
+3. **V4.1 Flash 发布与 V4 Pro 路由过渡**：
+   - 官方计划于 2026 年 9 月 10 日前后发布 V4.1 Flash 模型；
+   - 在 V4.1 Flash 正式上线之后、V4.1 Pro 上线之前，官方将对 V4 Pro 的请求全部路由到 V4.1 Flash，并按 V4.1 Flash 单价计费。
 
 ---
 
 ## 📝 更新日志 (Changelog)
+
+### v0.2.6 (2026-09-10)
+
+- 🚀 **全面支持 DeepSeek 2026-09-10 官方新模型与 Flash 降价新规**：
+  - **新增多模态模型 `deepseek-v4-flash-vision-exp` 支持**：收录官方原生视觉模型，文本与图像 token 均按 Flash 系列费率精准计量与展示；
+  - **落地 2026-09-10 12:00:00 BJT 调价分水岭**：内置 `FLASH_20260910_EFFECTIVE_TIMESTAMP`，生效前历史会话按旧版费率无损回溯，生效后自动切换至最新大幅下调价格（空闲 0.02/1/4，高峰 0.04/2/8）；
+  - **双币种（CNY / USD）官方基准定价同步更新**：美元基准费率同步更新至最新峰谷价格；
+  - **`?` 定价参考卡片与设置面板全面适配**：悬停卡片与配置组件优雅呈现包含 `deepseek-v4-flash-vision-exp` 在内的 V4 矩阵；
+  - **兼容即将发布的 V4.1 Flash 与 V4 Pro 路由降费机制**；
+  - **双包同步**：主包与 `dsh-balance-lite` 精简包全量对齐并补充完整单测用例。
+
+---
 
 ### v0.2.5 (2026-08-29)
 
