@@ -244,5 +244,12 @@ await new Promise((r) => setTimeout(r, 400))
 const htmlUnavailable = renderToStaticMarkup(ReactMock.createElement(Comp, props))
 if (!htmlUnavailable.includes('dshqb_dot_danger')) throw new Error('danger dot missing when isAvailable=false')
 
+// 6. Issue #7 验证: lite 包 client.inject 不包含已废弃的 @deepseek-ai/dsh-client-runtime
+const pkgLite = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+if (pkgLite.dsh?.client?.inject?.includes('@deepseek-ai/dsh-client-runtime')) {
+  throw new Error('packages/lite/package.json dsh.client.inject must not include deprecated @deepseek-ai/dsh-client-runtime')
+}
+console.log('Issue #7 lite package inject verification passed')
+
 console.log('LITE CLIENT SMOKE TEST PASSED')
 process.exit(0)

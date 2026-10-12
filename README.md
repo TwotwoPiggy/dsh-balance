@@ -272,6 +272,16 @@ A: 根据 DeepSeek 官方 2026 年 9 月 10 日最新公告与文档：
 
 ## 📝 更新日志 (Changelog)
 
+### v0.2.7 (2026-10-12)
+
+- 🐛 **修复新宿主下插槽渲染崩溃与静默不激活 (Fix [#7](https://github.com/TwotwoPiggy/dsh-balance/issues/7))**：
+  - **移除废弃注入依赖**：从 `dsh.client.inject` 移除宿主 0.1.7 中不再提供的 `@deepseek-ai/dsh-client-runtime`，解决条目静默挂起无法激活的问题；
+  - **适配新版图标组件并增加内联 SVG 降级**：兼容 `@deepseek-ai/dsh-client-ui-primitives` 新导出的 `IconQuestionOutlineRegular`，并在缺少对应图标或 primitives 模块时自动降级为内联 14x14 矢量 SVG 问号，彻底杜绝传 `undefined` 导致的 `Minified React error #130`；
+  - **插槽级错误保护与安全隔离**：在客户端渲染全流程增设容错保护，出现非预期异常时优雅降级为 `null`，避免带崩整条 `conversation.composer.dock` 统计条；
+  - **双包同步与单测补全**：主包与 `dsh-balance-lite` 精简包全量对齐，并增加宿主兼容性与图标降级专项单测。
+
+---
+
 ### v0.2.6 (2026-09-10)
 
 - 🚀 **全面支持 DeepSeek 2026-09-10 官方新模型与 Flash 降价新规**：

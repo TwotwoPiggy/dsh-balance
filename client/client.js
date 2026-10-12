@@ -18,7 +18,12 @@ window.__ModuleLoader__.load({
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react = require("react");
-		let _ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		let _ui_primitives = null;
+		try {
+			_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		} catch {
+			_ui_primitives = null;
+		}
 
 		//#region styles
 		const CSS_ID = "dsh-balance/styles.css";
@@ -1265,6 +1270,39 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
+		/** 备用问号帮助图标 SVG (当宿主 primitives 缺失或更名时兜底，确保绝不向 React 传入 undefined) */
+		function IconQuestionFallback(props) {
+			const size = props?.size || 14;
+			return react.createElement("svg", {
+				width: size,
+				height: size,
+				viewBox: "0 0 24 24",
+				fill: "none",
+				stroke: "currentColor",
+				strokeWidth: 2,
+				strokeLinecap: "round",
+				strokeLinejoin: "round"
+			}, [
+				react.createElement("circle", { cx: 12, cy: 12, r: 10, key: "c" }),
+				react.createElement("path", { d: "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", key: "p" }),
+				react.createElement("line", { x1: 12, y1: 17, x2: 12.01, y2: 17, key: "l" })
+			]);
+		}
+
+		/** 安全解析问号图标组件: 兼容新版无尺寸后缀与旧版带尺寸后缀命名，无匹配时降级为内联 SVG */
+		function getQuestionIconComponent() {
+			if (_ui_primitives) {
+				const comp = _ui_primitives.IconQuestionOutlineRegular
+					|| _ui_primitives.IconQuestionOutlineMedium
+					|| _ui_primitives.IconQuestionOutline14
+					|| _ui_primitives.IconQuestionOutlineArtwork;
+				if (typeof comp === "function" || (typeof comp === "object" && comp !== null)) {
+					return comp;
+				}
+			}
+			return IconQuestionFallback;
+		}
+
 		/**
 		 * 余额读数: 与统计条同行的右对齐读数。
 		 * 包含余额指示灯、本会话消耗、悬停双栏卡片、V4 定价卡片与可视化设置弹窗。
@@ -1275,7 +1313,8 @@ window.__ModuleLoader__.load({
 			const [isSettingsOpen, setSettingsOpen] = react.useState(false);
 			const rootRef = react.useRef(null);
 
-			const isRefreshing = balance.isRefreshing === true;
+			try {
+				const isRefreshing = balance.isRefreshing === true;
 			const handleRefresh = (e) => {
 				e.stopPropagation();
 				e.preventDefault();
@@ -1534,7 +1573,7 @@ window.__ModuleLoader__.load({
 						rel: "noreferrer",
 						"aria-label": t("pricing.aria"),
 						title: t("pricing.aria"),
-						children: react.createElement(_ui_primitives.IconQuestionOutline14, { size: 14 })
+						children: react.createElement(getQuestionIconComponent(), { size: 14 })
 					}),
 					pricingPopover
 				]);
@@ -1592,11 +1631,17 @@ window.__ModuleLoader__.load({
 				}));
 			}
 
-			return react.createElement("div", {
-				ref: rootRef,
-				className: "dshqb_root",
-				children: rootChildren
-			});
+				return react.createElement("div", {
+					ref: rootRef,
+					className: "dshqb_root",
+					children: rootChildren
+				});
+			} catch (err) {
+				if (typeof console !== "undefined" && console.error) {
+					console.error("[dsh-balance] slot render crashed:", err);
+				}
+				return null;
+			}
 		});
 		//#endregion
 

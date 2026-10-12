@@ -80,7 +80,7 @@ function renderToStaticMarkup(vnode) {
 function stubPrimitives(React) {
   return {
     Tooltip: ({ label, children }) => React.createElement('span', { 'data-label': typeof label === 'string' ? label : '' }, children ?? null),
-    IconQuestionOutline14: () => React.createElement('span', null, '?'),
+    IconQuestionOutlineRegular: () => React.createElement('span', null, '?'),
   }
 }
 
@@ -313,6 +313,83 @@ const htmlDynamicCurrency = renderToStaticMarkup(ReactMock.createElement(Comp, p
 if (htmlDynamicCurrency.includes('$0.482')) throw new Error('stale USD cost should be re-calculated to active currency CNY')
 if (!htmlDynamicCurrency.includes('本会话约 ¥')) throw new Error('dynamic cost should render CNY symbol ¥')
 console.log('Real-time currency adaptation without page refresh test passed')
+
+// 7. Issue #7 验证: 新宿主兼容性 (移除废弃 runtime inject、IconQuestionOutlineRegular 与内联 SVG 降级)
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+if (pkg.dsh?.client?.inject?.includes('@deepseek-ai/dsh-client-runtime')) {
+  throw new Error('package.json dsh.client.inject must not include deprecated @deepseek-ai/dsh-client-runtime')
+}
+
+// 7.1 验证 primitives 仅导出 IconQuestionOutlineRegular 时正常工作 (新宿主 @deepseek-ai/dsh 0.1.7-rc.2)
+let capturedNewHost = null
+const mockWindowNewHost = {
+  __ModuleLoader__: { load(entry) { capturedNewHost = entry } },
+}
+new Function('window', 'require', code)(mockWindowNewHost, (id) => {
+  if (id === 'react') return ReactMock
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') {
+    return {
+      IconQuestionOutlineRegular: () => ReactMock.createElement('span', null, '?regular'),
+    }
+  }
+  throw new Error('unexpected require: ' + id)
+})
+const apiNewHost = capturedNewHost.factory((id) => {
+  if (id === 'react') return ReactMock
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') {
+    return {
+      IconQuestionOutlineRegular: () => ReactMock.createElement('span', null, '?regular'),
+    }
+  }
+  throw new Error('unexpected require: ' + id)
+})
+let compNewHost = null
+apiNewHost.apply({
+  effect(fn) { fn() },
+  locale: { register() {} },
+  slots: {
+    inject(name, factory) { factory() },
+    register(opts, comp) { compNewHost = comp },
+  },
+})
+renderToStaticMarkup(ReactMock.createElement(compNewHost, props))
+await new Promise((r) => setTimeout(r, 400))
+const htmlNewHost = renderToStaticMarkup(ReactMock.createElement(compNewHost, props))
+if (!htmlNewHost.includes('?regular')) {
+  throw new Error('Issue #7: IconQuestionOutlineRegular should be rendered in new host: ' + htmlNewHost)
+}
+
+// 7.2 验证 primitives 完全为空或缺失时，降级为内联 SVG，绝不传 undefined 导致 React error #130
+let capturedFallback = null
+const mockWindowFallback = {
+  __ModuleLoader__: { load(entry) { capturedFallback = entry } },
+}
+new Function('window', 'require', code)(mockWindowFallback, (id) => {
+  if (id === 'react') return ReactMock
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') return {}
+  throw new Error('unexpected require: ' + id)
+})
+const apiFallback = capturedFallback.factory((id) => {
+  if (id === 'react') return ReactMock
+  if (id === '@deepseek-ai/dsh-client-ui-primitives') return {}
+  throw new Error('unexpected require: ' + id)
+})
+let compFallback = null
+apiFallback.apply({
+  effect(fn) { fn() },
+  locale: { register() {} },
+  slots: {
+    inject(name, factory) { factory() },
+    register(opts, comp) { compFallback = comp },
+  },
+})
+renderToStaticMarkup(ReactMock.createElement(compFallback, props))
+await new Promise((r) => setTimeout(r, 400))
+const htmlFallback = renderToStaticMarkup(ReactMock.createElement(compFallback, props))
+if (!htmlFallback.includes('<svg') || !htmlFallback.includes('M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3')) {
+  throw new Error('Issue #7: fallback question svg should be rendered when primitives is empty: ' + htmlFallback)
+}
+console.log('Issue #7 new host compatibility & fallback icon tests passed')
 
 console.log('CLIENT SMOKE TEST PASSED (ZERO-DEPENDENCY)')
 process.exit(0)

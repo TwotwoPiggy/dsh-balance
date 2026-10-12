@@ -252,7 +252,8 @@ window.__ModuleLoader__.load({
 			const balance = react.useSyncExternalStore(balanceStore.subscribe, balanceStore.getSnapshot, balanceStore.getSnapshot);
 			const rootRef = react.useRef(null);
 
-			const isRefreshing = balance.isRefreshing === true;
+			try {
+				const isRefreshing = balance.isRefreshing === true;
 			const handleRefresh = (e) => {
 				e.stopPropagation();
 				e.preventDefault();
@@ -402,11 +403,17 @@ window.__ModuleLoader__.load({
 				key: "trigger"
 			}, triggerChildren);
 
-			return react.createElement("div", {
-				ref: rootRef,
-				className: "dshqb_root",
-				children: [triggerWrapper]
-			});
+				return react.createElement("div", {
+					ref: rootRef,
+					className: "dshqb_root",
+					children: [triggerWrapper]
+				});
+			} catch (err) {
+				if (typeof console !== "undefined" && console.error) {
+					console.error("[dsh-balance-lite] slot render crashed:", err);
+				}
+				return null;
+			}
 		});
 		//#endregion
 

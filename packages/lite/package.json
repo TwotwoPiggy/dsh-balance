@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance-lite",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "DeepSeek 余额显示插件 (精简版): 纯余额与会话消耗显示，无设置面板",
   "repository": {
     "type": "git",
@@ -30,7 +30,6 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-locale"
       ]
     }
