@@ -239,12 +239,12 @@ window.__ModuleLoader__.load({
 			return prefix + window.start + "~" + window.end;
 		}
 		function renderScheduleHint(t, r, payload) {
+			// 行序固定为「☀️ 峰时窗口」→「该时区的峰时窗口」→「🌙 其余时段」: 谷时行必须排在时区行之后,
+			// 否则紧挨着的换算时间区间会被读成谷时窗口, 看不出区间归属。
 			const nodes = [
 				"· ",
 				r.createElement("span", { title: t("pricing.periodPeak"), key: "s_peak_ic" }, "☀️"),
-				" " + t("pricing.schedulePeak") + " " + t("pricing.scheduleBillingNote") + "\n" + t("pricing.scheduleOtherPrefix"),
-				r.createElement("span", { title: t("pricing.periodOffPeak"), key: "s_offpeak_ic" }, "🌙"),
-				" " + t("pricing.scheduleOffPeak")
+				" " + t("pricing.schedulePeak") + " " + t("pricing.scheduleBillingNote")
 			];
 			// 展示时区与计费时区不同时, 追加一行该时区墙钟下的峰时窗口。
 			const timezone = typeof payload?.timezone === "string" ? payload.timezone : "";
@@ -253,6 +253,11 @@ window.__ModuleLoader__.load({
 				const text = windows.map((window) => formatWindowLabel(t, window)).join(" / ");
 				nodes.push("\n" + t("pricing.scheduleYourZone", { tz: timezone, windows: text }));
 			}
+			nodes.push(
+				"\n" + t("pricing.scheduleOtherPrefix"),
+				r.createElement("span", { title: t("pricing.periodOffPeak"), key: "s_offpeak_ic" }, "🌙"),
+				" " + t("pricing.scheduleOffPeak")
+			);
 			return nodes;
 		}
 		/** 官方定价页。 */

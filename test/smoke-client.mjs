@@ -264,6 +264,10 @@ if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"
 if (!htmlGreen.includes('你的时区 (Europe/Moscow)')) throw new Error('display timezone schedule line missing')
 if (!htmlGreen.includes('04:00~07:00')) throw new Error('converted peak window missing')
 if (!htmlGreen.includes('09:00~13:00')) throw new Error('converted second peak window missing')
+// 行序: 谷时行必须在时区峰时窗口之后, 否则紧邻的时间区间会被误读为谷时
+if (htmlGreen.indexOf('你的时区 (Europe/Moscow)') > htmlGreen.indexOf('其余时段')) {
+  throw new Error('display timezone line must precede the off-peak line')
+}
 
 // 验证设置按钮存在
 if (!htmlGreen.includes('title="插件设置"')) throw new Error('settings button title missing')
