@@ -156,6 +156,44 @@ window.__ModuleLoader__.load({
 		//#region formatting
 		const CURRENCY_SYMBOLS = { CNY: "¥", USD: "$", EUR: "€" };
 		const currencySymbol = (currency) => CURRENCY_SYMBOLS[currency] ?? currency + " ";
+		/** 官方计费锚定时区: 峰谷判定固定按北京时间, 展示时区只影响文案。 */
+		const BILLING_TIMEZONE = "Asia/Shanghai";
+		/** 设置面板的常用时区候选 (仍可直接输入任意 IANA 时区名)。 */
+		const TIMEZONE_PRESETS = [
+			"Asia/Shanghai",
+			"Asia/Tokyo",
+			"Asia/Singapore",
+			"Asia/Kolkata",
+			"Europe/London",
+			"Europe/Berlin",
+			"Europe/Moscow",
+			"America/New_York",
+			"America/Los_Angeles",
+			"UTC"
+		];
+		/** 校验 IANA 时区名 (大小写不敏感, 由 Intl 裁定)。 */
+		function isValidTimezone(timezone) {
+			if (typeof timezone !== "string" || timezone.trim() === "") return false;
+			try {
+				new Intl.DateTimeFormat("en-US", { timeZone: timezone.trim() });
+				return true;
+			} catch {
+				return false;
+			}
+		}
+		/** 指定时区的当前墙钟时间 (HH:MM), 非法时区返回空串。 */
+		function formatZoneClock(timezone, date = new Date()) {
+			try {
+				return date.toLocaleTimeString(undefined, {
+					timeZone: timezone,
+					hour: "2-digit",
+					minute: "2-digit",
+					hourCycle: "h23"
+				});
+			} catch {
+				return "";
+			}
+		}
 		/** 余额/花费显示: 0 显示 2 位, 大额 2 位小数, 小额 3~4 位。 */
 		function formatMoney(amount, currency) {
 			if (typeof amount !== "number" || isNaN(amount)) return currencySymbol(currency) + "0.00";
@@ -191,14 +229,31 @@ window.__ModuleLoader__.load({
 			if (total < warning) return "warning";
 			return "success";
 		}
-		function renderScheduleHint(t, r) {
-			return [
+		/** 单段窗口文案: 起点相对计费日的偏移用「前一日/次日」标注; 终点紧随其后, 跨零点由 ~ 体现。 */
+		function formatWindowLabel(t, window) {
+			const prefix = window.dayOffset > 0
+				? t("pricing.dayNext")
+				: window.dayOffset < 0
+					? t("pricing.dayPrevious")
+					: "";
+			return prefix + window.start + "~" + window.end;
+		}
+		function renderScheduleHint(t, r, payload) {
+			const nodes = [
 				"· ",
 				r.createElement("span", { title: t("pricing.periodPeak"), key: "s_peak_ic" }, "☀️"),
-				" " + t("pricing.schedulePeak") + "\n" + t("pricing.scheduleOtherPrefix"),
+				" " + t("pricing.schedulePeak") + " " + t("pricing.scheduleBillingNote") + "\n" + t("pricing.scheduleOtherPrefix"),
 				r.createElement("span", { title: t("pricing.periodOffPeak"), key: "s_offpeak_ic" }, "🌙"),
 				" " + t("pricing.scheduleOffPeak")
 			];
+			// 展示时区与计费时区不同时, 追加一行该时区墙钟下的峰时窗口。
+			const timezone = typeof payload?.timezone === "string" ? payload.timezone : "";
+			const windows = Array.isArray(payload?.peakWindows) ? payload.peakWindows : [];
+			if (timezone !== "" && timezone !== BILLING_TIMEZONE && windows.length > 0) {
+				const text = windows.map((window) => formatWindowLabel(t, window)).join(" / ");
+				nodes.push("\n" + t("pricing.scheduleYourZone", { tz: timezone, windows: text }));
+			}
+			return nodes;
 		}
 		/** 官方定价页。 */
 		const PRICING_URL = "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/";
@@ -325,6 +380,10 @@ window.__ModuleLoader__.load({
 			"pricing.scheduleOtherPrefix": "· 其余时段 (含周末) 为 ",
 			"pricing.scheduleOffPeak": "(5折特惠)",
 			"pricing.scheduleHint": "· ☀️ 周一至周五 09:00~12:00 / 14:00~18:00 (100%)\n· 其余时段 (含周末) 为 🌙 (5折特惠)",
+			"pricing.scheduleBillingNote": "(北京时间)",
+			"pricing.scheduleYourZone": "· 你的时区 ({tz})：{windows}",
+			"pricing.dayPrevious": "前一日 ",
+			"pricing.dayNext": "次日 ",
 			"pricing.hit": "命中 {price}",
 			"pricing.miss": "未命中 {price}",
 			"pricing.output": "输出 {price}",
@@ -341,6 +400,11 @@ window.__ModuleLoader__.load({
 			"settings.tab.export": "📋 YAML 导出",
 			"settings.currency": "计价货币",
 			"settings.currencyHint": "用于界面金额展示及模型花费折算。",
+			"settings.timezone": "显示时区",
+			"settings.timezoneHint": "仅影响峰谷时段文案；计费判定始终按北京时间 (Asia/Shanghai)。",
+			"settings.timezonePlaceholder": "例如 Europe/Moscow",
+			"settings.timezoneInvalid": "无效的 IANA 时区名，可选例如 Europe/Moscow、America/New_York、UTC。",
+			"settings.timezonePreview": "该时区当前时间：{time}",
 			"settings.warning": "预警阈值 (黄灯 🟡)",
 			"settings.warningHint": "当余额低于此值时显示黄色预警状态。",
 			"settings.danger": "告急阈值 (红灯 🔴)",
@@ -407,6 +471,10 @@ window.__ModuleLoader__.load({
 			"pricing.scheduleOtherPrefix": "· Off-peak & weekends: ",
 			"pricing.scheduleOffPeak": "(50% off)",
 			"pricing.scheduleHint": "· ☀️ Mon-Fri 09:00~12:00 / 14:00~18:00 (100%)\n· Off-peak & weekends: 🌙 (50% off)",
+			"pricing.scheduleBillingNote": "(Beijing time)",
+			"pricing.scheduleYourZone": "· Your timezone ({tz}): {windows}",
+			"pricing.dayPrevious": "prev day ",
+			"pricing.dayNext": "next day ",
 			"pricing.hit": "Hit {price}",
 			"pricing.miss": "Miss {price}",
 			"pricing.output": "Out {price}",
@@ -423,6 +491,11 @@ window.__ModuleLoader__.load({
 			"settings.tab.export": "📋 YAML Export",
 			"settings.currency": "Currency",
 			"settings.currencyHint": "Used for display and session cost calculation.",
+			"settings.timezone": "Display Timezone",
+			"settings.timezoneHint": "Affects peak/off-peak wording only; billing is always judged in Beijing time (Asia/Shanghai).",
+			"settings.timezonePlaceholder": "e.g. Europe/Moscow",
+			"settings.timezoneInvalid": "Invalid IANA timezone. Try Europe/Moscow, America/New_York or UTC.",
+			"settings.timezonePreview": "Current time in that timezone: {time}",
 			"settings.warning": "Warning Threshold (Yellow 🟡)",
 			"settings.warningHint": "Show yellow warning status when balance is below this value.",
 			"settings.danger": "Danger Threshold (Red 🔴)",
@@ -499,6 +572,7 @@ window.__ModuleLoader__.load({
 			clientPollIntervalMs: 30000,
 			timeoutMs: 8000,
 			baseUrl: "https://api.deepseek.com",
+			timezone: BILLING_TIMEZONE,
 			apiKey: "",
 			isPeak: false,
 			prices: { ...DEFAULT_PRICES_BY_CURRENCY.CNY.peak },
@@ -510,6 +584,7 @@ window.__ModuleLoader__.load({
 				"- id: dsh-balance",
 				"  config:",
 				`    currency: ${config.currency}`,
+				`    timezone: ${config.timezone || BILLING_TIMEZONE}`,
 				`    refreshIntervalMs: ${config.refreshIntervalMs}`,
 				`    clientPollIntervalMs: ${config.clientPollIntervalMs}`,
 				"    thresholds:"
@@ -661,6 +736,7 @@ window.__ModuleLoader__.load({
 			const [saving, setSaving] = react.useState(false);
 			const [toast, setToast] = react.useState(null);
 			const [copied, setCopied] = react.useState(false);
+			const [timezoneError, setTimezoneError] = react.useState(null);
 
 			// 自定义新增模型表单字段
 			const [newModelName, setNewModelName] = react.useState("");
@@ -699,6 +775,7 @@ window.__ModuleLoader__.load({
 								clientPollIntervalMs: c.clientPollIntervalMs ?? 30000,
 								timeoutMs: c.timeoutMs ?? 8000,
 								baseUrl: c.baseUrl ?? "https://api.deepseek.com",
+								timezone: typeof c.timezone === "string" && c.timezone !== "" ? c.timezone : BILLING_TIMEZONE,
 								apiKey: "",
 								isPeak: isCurrentlyPeak,
 								prices: c.prices && Object.keys(c.prices).length > 0 ? { ...c.prices } : { ...defaults.peak },
@@ -728,10 +805,17 @@ window.__ModuleLoader__.load({
 			};
 
 			const handleSave = async () => {
+				const timezone = typeof form.timezone === "string" ? form.timezone.trim() : "";
+				if (!isValidTimezone(timezone)) {
+					setTimezoneError(t("settings.timezoneInvalid"));
+					return;
+				}
+				setTimezoneError(null);
 				setSaving(true);
 				try {
 					const payload = {
 						currency: form.currency,
+						timezone,
 						thresholds: form.thresholds,
 						prices: form.prices,
 						pricesOffPeak: form.pricesOffPeak,
@@ -904,6 +988,32 @@ window.__ModuleLoader__.load({
 									react.createElement("option", { value: "CNY", key: "cny" }, "CNY (人民币 ¥)"),
 									react.createElement("option", { value: "USD", key: "usd" }, "USD (美元 $)")
 								])
+							]),
+							// 显示时区 (仅影响峰谷时段文案, 计费判定始终按北京时间)
+							react.createElement("div", { className: "dshqb_form_group", key: "tz_group" }, [
+								react.createElement("div", { className: "dshqb_form_label_row", key: "lbl_row" }, [
+									react.createElement("label", { className: "dshqb_form_label", key: "lbl" }, t("settings.timezone")),
+									react.createElement("span", { className: "dshqb_form_hint", key: "hint" }, t("settings.timezoneHint"))
+								]),
+								react.createElement("input", {
+									type: "text",
+									className: "dshqb_input",
+									list: "dshqb_timezone_presets",
+									placeholder: t("settings.timezonePlaceholder"),
+									value: form.timezone ?? "",
+									onChange: (e) => {
+										const next = e.target.value;
+										setTimezoneError(next.trim() !== "" && !isValidTimezone(next) ? t("settings.timezoneInvalid") : null);
+										setForm({ ...form, timezone: next });
+									},
+									key: "inp"
+								}),
+								react.createElement("datalist", { id: "dshqb_timezone_presets", key: "presets" },
+									TIMEZONE_PRESETS.map((tz) => react.createElement("option", { value: tz, key: tz }))),
+								timezoneError !== null
+									? react.createElement("span", { className: "dshqb_form_hint", style: { color: "#ef4444" }, key: "err" }, timezoneError)
+									: react.createElement("span", { className: "dshqb_form_hint", key: "preview" },
+										t("settings.timezonePreview", { time: formatZoneClock(form.timezone) }))
 							]),
 							// 交互式阈值调节双滑块
 							react.createElement(InteractiveThresholdSlider, {
@@ -1551,7 +1661,7 @@ window.__ModuleLoader__.load({
 							])
 						)
 					),
-					react.createElement("div", { className: "dshqb_pricing_schedule", key: "schedule" }, renderScheduleHint(t, react)),
+					react.createElement("div", { className: "dshqb_pricing_schedule", key: "schedule" }, renderScheduleHint(t, react, balance.payload)),
 					react.createElement("a", {
 						className: "dshqb_pricing_link",
 						key: "link",

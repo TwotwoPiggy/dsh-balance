@@ -58,6 +58,18 @@ export const resolveThresholds = (config, currency = config?.currency) => {
   return { warning, danger }
 }
 
+/** 官方计费锚定时区: 北京时间 (UTC+8, 无夏令时)。峰谷判定始终按该时区, 与展示时区无关。 */
+export const BILLING_TIMEZONE = 'Asia/Shanghai'
+
+/** 展示时区默认值: 与计费时区一致, 保持既有行为。 */
+export const DEFAULT_TIMEZONE = BILLING_TIMEZONE
+
+/** 官方高峰时段 (计费时区墙钟, 左闭右开, 单位: 小时) */
+export const PEAK_WINDOWS = [
+  { startHour: 9, endHour: 12 },
+  { startHour: 14, endHour: 18 },
+]
+
 export const Config = Schema.object({
   /** 显式 API 密钥; 留空则走 apiKeyRef(credentials / 环境变量) */
   apiKey: Schema.string().default(''),
@@ -73,6 +85,8 @@ export const Config = Schema.object({
   timeoutMs: Schema.number().min(1000).default(8000),
   /** 花费估算的计价货币(与 prices 一致) */
   currency: Schema.string().default('CNY'),
+  /** 界面展示时区(IANA 名称, 如 Europe/Moscow); 仅影响峰谷时段文案, 计费判定始终按北京时间 */
+  timezone: Schema.string().default(DEFAULT_TIMEZONE),
   prices: Schema.dict(ModelPrice).default({}),
   /** 谷时模型单价表(用户自定义，留空则使用官方最新标准单价) */
   pricesOffPeak: Schema.dict(ModelPrice).default({}),
@@ -166,6 +180,93 @@ export const isFlashSeriesModel = (model) => {
 /** 周末全天空闲特惠生效时刻: 北京时间 2026-08-23 00:00:00 (UTC 2026-08-22T16:00:00Z) */
 export const WEEKEND_OFF_PEAK_EFFECTIVE_TIMESTAMP = Date.UTC(2026, 7, 22, 16, 0, 0)
 
+/** 北京时间固定偏移 (无夏令时), 用于把计费墙钟换算成绝对时刻。 */
+const BILLING_OFFSET_MS = 8 * 60 * 60 * 1000
+
+const WEEKDAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+const zoneFormatterCache = new Map()
+
+/** 获取 (并缓存) 指定时区的 Intl 格式化器。 */
+const zoneFormatter = (timeZone) => {
+  let formatter = zoneFormatterCache.get(timeZone)
+  if (formatter === undefined) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    zoneFormatterCache.set(timeZone, formatter)
+  }
+  return formatter
+}
+
+/** 校验 IANA 时区名 (大小写不敏感, 由 Intl 裁定)。 */
+export const isValidTimeZone = (timeZone) => {
+  if (typeof timeZone !== 'string' || timeZone.trim() === '') return false
+  try {
+    zoneFormatter(timeZone.trim()).format(new Date())
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 把用户配置的时区归一化为 Intl 规范名; 缺失或非法时回退到计费时区。 */
+export const normalizeTimeZone = (timeZone) => {
+  if (!isValidTimeZone(timeZone)) return BILLING_TIMEZONE
+  const formatter = zoneFormatter(timeZone.trim())
+  return formatter.resolvedOptions().timeZone || timeZone.trim()
+}
+
+/** 取某个绝对时刻在指定时区中的墙钟字段。 */
+const zonedParts = (timestamp, timeZone) => {
+  const parts = {}
+  for (const part of zoneFormatter(timeZone).formatToParts(new Date(timestamp))) {
+    if (part.type !== 'literal') parts[part.type] = part.value
+  }
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    weekday: WEEKDAY_INDEX[parts.weekday] ?? 0,
+  }
+}
+
+/** 计费时区某天某小时的墙钟 → 绝对时刻。 */
+const billingWallToInstant = (dateParts, hour) =>
+  Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day, hour, 0, 0) - BILLING_OFFSET_MS
+
+const dateIndex = ({ year, month, day }) => Date.UTC(year, month - 1, day) / 86400000
+const pad2 = (value) => String(value).padStart(2, '0')
+
+/**
+ * 把计费时区(北京时间)的高峰时段换算成展示时区的墙钟时间。
+ * 返回每段窗口的显示起止时间与相对计费日的天数偏移 (-1 前一日 / 0 当日 / +1 次日)。
+ */
+export const peakWindowsForTimeZone = (timeZone = DEFAULT_TIMEZONE, timestamp = Date.now()) => {
+  const zone = normalizeTimeZone(timeZone)
+  const ts = typeof timestamp === 'number'
+    ? timestamp
+    : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
+  const billingDate = zonedParts(ts, BILLING_TIMEZONE)
+  return PEAK_WINDOWS.map(({ startHour, endHour }) => {
+    const startParts = zonedParts(billingWallToInstant(billingDate, startHour), zone)
+    const endParts = zonedParts(billingWallToInstant(billingDate, endHour), zone)
+    return {
+      start: `${pad2(startParts.hour)}:${pad2(startParts.minute)}`,
+      end: `${pad2(endParts.hour)}:${pad2(endParts.minute)}`,
+      dayOffset: dateIndex(startParts) - dateIndex(billingDate),
+    }
+  })
+}
+
 /**
  * 判定指定时间戳是否处于 DeepSeek 计费高峰时段。
  * - 2026-08-23 00:00:00 (BJT) 起: 高峰时段为周一至周五 09:00~12:00, 14:00~18:00 (其余工作日时段及周末全天为 5折 空闲特惠)；
@@ -175,17 +276,14 @@ export const isPeakTime = (timestamp = Date.now()) => {
   const ts = typeof timestamp === 'number'
     ? timestamp
     : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
-  // 北京时间 (UTC+8): 加上 8 小时毫秒偏移后按 UTC 提取星期与小时
-  const bjtDate = new Date(ts + 8 * 60 * 60 * 1000)
-  const day = bjtDate.getUTCDay() // 0 是周日, 1-5 是周一到周五, 6 是周六
-  const hour = bjtDate.getUTCHours()
-  const inPeakHours = (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18)
+  // 北京时间 (UTC+8) 的墙钟: 判定只依赖计费时区, 与展示时区无关。
+  const { hour, weekday } = zonedParts(ts, BILLING_TIMEZONE)
+  const inPeakHours = PEAK_WINDOWS.some(({ startHour, endHour }) => hour >= startHour && hour < endHour)
   if (!inPeakHours) return false
 
   // 2026-08-23 00:00 BJT 起周末全天空闲特惠; 生效前历史周末仍保持高峰段计费
   if (ts >= WEEKEND_OFF_PEAK_EFFECTIVE_TIMESTAMP) {
-    const isWeekday = day >= 1 && day <= 5
-    return isWeekday
+    return weekday >= 1 && weekday <= 5
   }
 
   return true
@@ -465,6 +563,7 @@ export function apply(ctx, config) {
     clientPollIntervalMs: config.clientPollIntervalMs ?? 30000,
     timeoutMs: config.timeoutMs ?? 8000,
     currency: initialCurrency,
+    timezone: normalizeTimeZone(config.timezone),
     thresholds: (() => {
       const result = {}
       if (config.thresholds && typeof config.thresholds === 'object') {
@@ -626,6 +725,9 @@ export function apply(ctx, config) {
       clientPollIntervalMs: runtimeConfig.clientPollIntervalMs,
       timeoutMs: runtimeConfig.timeoutMs,
       currency: runtimeConfig.currency,
+      timezone: runtimeConfig.timezone,
+      billingTimezone: BILLING_TIMEZONE,
+      peakWindows: peakWindowsForTimeZone(runtimeConfig.timezone),
       warningThreshold: activeThresholds.warning,
       dangerThreshold: activeThresholds.danger,
       thresholds: getAllThresholds(runtimeConfig),
@@ -649,6 +751,9 @@ export function apply(ctx, config) {
         refreshIntervalMs: runtimeConfig.refreshIntervalMs,
         clientPollIntervalMs: runtimeConfig.clientPollIntervalMs,
         currency: runtimeConfig.currency,
+        timezone: runtimeConfig.timezone,
+        billingTimezone: BILLING_TIMEZONE,
+        peakWindows: peakWindowsForTimeZone(runtimeConfig.timezone),
         isPeak,
         thresholds: activeThresholds,
         thresholdsByCurrency: getAllThresholds(runtimeConfig),
@@ -733,6 +838,13 @@ export function apply(ctx, config) {
             if (typeof body.clientPollIntervalMs === 'number' && body.clientPollIntervalMs >= 1000) runtimeConfig.clientPollIntervalMs = body.clientPollIntervalMs
             if (typeof body.timeoutMs === 'number' && body.timeoutMs >= 1000) runtimeConfig.timeoutMs = body.timeoutMs
             if (typeof body.currency === 'string' && body.currency.trim()) runtimeConfig.currency = body.currency.trim().toUpperCase()
+            if (body.timezone !== undefined) {
+              if (!isValidTimeZone(body.timezone)) {
+                sendJson(res, 400, { ok: false, error: 'invalid-timezone' })
+                return
+              }
+              runtimeConfig.timezone = normalizeTimeZone(body.timezone)
+            }
 
             if (body.thresholds && typeof body.thresholds === 'object') {
               for (const [cur, t] of Object.entries(body.thresholds)) {
