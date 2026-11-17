@@ -153,14 +153,17 @@ export const V4_RATES = {
   },
 }
 
-/** 判定模型是否属于 DeepSeek Flash 系列 (含 flash-vision-exp、v4.1-flash) */
+/** 官方 Flash 系列模型 id 列表 (`deepseek-flash` 为 2026 年后的官方主名, 旧 id 仍可调用)。 */
+export const FLASH_MODEL_IDS = [
+  'deepseek-flash',
+  'deepseek-v4-flash',
+  'deepseek-v4-flash-vision-exp',
+  'deepseek-v4.1-flash',
+]
+
 export const isFlashSeriesModel = (model) => {
   if (typeof model !== 'string') return false
-  return (
-    model === 'deepseek-v4-flash' ||
-    model === 'deepseek-v4-flash-vision-exp' ||
-    model === 'deepseek-v4.1-flash'
-  )
+  return FLASH_MODEL_IDS.includes(model)
 }
 
 /** 周末全天空闲特惠生效时刻: 北京时间 2026-08-23 00:00:00 (UTC 2026-08-22T16:00:00Z) */
@@ -602,6 +605,7 @@ export function apply(ctx, config) {
     const table = V4_RATES[currency] ?? V4_RATES.CNY
 
     const peakPrices = {
+      'deepseek-flash': table.peak['deepseek-v4-flash'],
       'deepseek-v4-flash': table.peak['deepseek-v4-flash'],
       'deepseek-v4-flash-vision-exp': table.peak['deepseek-v4-flash-vision-exp'],
       'deepseek-v4-pro': table.peak['deepseek-v4-pro'],
@@ -609,6 +613,7 @@ export function apply(ctx, config) {
     }
 
     const offPeakPrices = {
+      'deepseek-flash': table.offPeak['deepseek-v4-flash'],
       'deepseek-v4-flash': table.offPeak['deepseek-v4-flash'],
       'deepseek-v4-flash-vision-exp': table.offPeak['deepseek-v4-flash-vision-exp'],
       'deepseek-v4-pro': table.offPeak['deepseek-v4-pro'],
@@ -654,6 +659,7 @@ export function apply(ctx, config) {
         thresholdsByCurrency: getAllThresholds(runtimeConfig),
         // 定价表随响应动态下发 (内置谷峰费率与 9月10日 调价自动生效规则), 供客户端 "?" 图标展示
         prices: {
+          'deepseek-flash': resolveModelPrice(runtimeConfig, 'deepseek-flash'),
           'deepseek-v4-flash': resolveModelPrice(runtimeConfig, 'deepseek-v4-flash'),
           'deepseek-v4-flash-vision-exp': resolveModelPrice(runtimeConfig, 'deepseek-v4-flash-vision-exp'),
           'deepseek-v4-pro': resolveModelPrice(runtimeConfig, 'deepseek-v4-pro'),

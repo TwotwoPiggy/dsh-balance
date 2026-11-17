@@ -205,6 +205,17 @@ async function runTests() {
   const resCache = await invokeRoute('/query-balance', 'GET')
   assert.ok(resCache.data.prices['custom-model-x'], 'custom-model-x should be present in cache.prices')
   assert.equal(resCache.data.prices['custom-model-x'].cacheHit, 0.5)
+  // 官方新模型名 deepseek-flash 必须出现在下发单价表中 (当前计价货币为 USD)
+  assert.ok(resCache.data.prices['deepseek-flash'], 'deepseek-flash should be present in cache.prices')
+  assert.deepEqual(
+    resCache.data.prices['deepseek-flash'],
+    resCache.data.isPeak
+      ? { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 }
+      : { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
+    'deepseek-flash must use the Flash USD rates',
+  )
+  const resCfgFlash = await invokeRoute('/query-balance/config', 'GET')
+  assert.ok(resCfgFlash.data.config.prices['deepseek-flash'], 'settings payload should include deepseek-flash')
   // 7. 验证 Bug 7: 请求体解析异常与非法 JSON 保护
   const resBadJson = await new Promise((resolve, reject) => {
     const handler = routes.get('/query-balance/config')

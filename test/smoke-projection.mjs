@@ -3,7 +3,7 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection, resolveModelPrice, isPeakTime } from '../src/index.js'
+import { makeCostProjection, resolveModelPrice, isPeakTime, isFlashSeriesModel } from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -209,5 +209,26 @@ assert.deepEqual(usdNewPeakFlash, { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2
 const usdNewOffPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
 assert.deepEqual(usdNewOffPeakFlash, { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 }, 'USD 2026-09-10 off-peak price mismatch')
 console.log('2026-09-10 flash price update & deepseek-v4-flash-vision-exp tests passed')
+
+// 9. 官方新模型名 deepseek-flash: 必须按 Flash 系列费率计价, 不得回退到 defaultPrices
+assert.equal(isFlashSeriesModel('deepseek-flash'), true, 'deepseek-flash is the official Flash model id')
+assert.equal(isFlashSeriesModel('deepseek-flash-vision-exp'), false, 'unknown ids must not be treated as Flash')
+const flashAliasConfig = { currency: 'CNY', prices: {}, pricesOffPeak: {}, defaultPrices: { cacheHit: 9, cacheMiss: 9, output: 9 } }
+assert.deepEqual(
+  resolveModelPrice(flashAliasConfig, 'deepseek-flash', postSept10PeakTime),
+  { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+  'deepseek-flash peak price must match the Flash table, not defaultPrices',
+)
+assert.deepEqual(
+  resolveModelPrice(flashAliasConfig, 'deepseek-flash', postSept10OffPeakTime),
+  { cacheHit: 0.02, cacheMiss: 1, output: 4 },
+  'deepseek-flash off-peak price must match the Flash table, not defaultPrices',
+)
+assert.deepEqual(
+  resolveModelPrice({ currency: 'USD', prices: {}, pricesOffPeak: {} }, 'deepseek-flash', postSept10PeakTime),
+  { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
+  'deepseek-flash USD peak price mismatch',
+)
+console.log('Official deepseek-flash model id pricing tests passed')
 
 console.log('PROJECTION TEST PASSED')
