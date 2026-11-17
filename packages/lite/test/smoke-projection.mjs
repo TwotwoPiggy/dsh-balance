@@ -21,7 +21,7 @@ assert.ok(def.stateSchema, 'stateSchema must be provided')
 assert.ok(def.wire, 'wire must be provided for client-visible projection')
 assert.ok(def.wire.viewSchema, 'wire.viewSchema must be provided')
 assert.equal(typeof def.wire.view, 'function', 'wire.view must be a function')
-assert.equal(def.stateVersion, 1, 'stateVersion must be 1')
+assert.equal(def.stateVersion, 2, 'stateVersion must be bumped when the folded state shape changes')
 
 let state = def.init()
 def.stateSchema.parse(state) // 校验初始状态符合 stateSchema

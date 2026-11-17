@@ -21,7 +21,7 @@ assert.ok(def.stateSchema, 'stateSchema must be provided')
 assert.ok(def.wire, 'wire must be provided for client-visible projection')
 assert.ok(def.wire.viewSchema, 'wire.viewSchema must be provided')
 assert.equal(typeof def.wire.view, 'function', 'wire.view must be a function')
-assert.equal(def.stateVersion, 1, 'stateVersion must be 1')
+assert.equal(def.stateVersion, 2, 'stateVersion must be bumped when the folded state shape changes')
 
 let state = def.init()
 def.stateSchema.parse(state) // 校验初始状态符合 stateSchema
@@ -209,5 +209,45 @@ assert.deepEqual(usdNewPeakFlash, { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2
 const usdNewOffPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
 assert.deepEqual(usdNewOffPeakFlash, { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 }, 'USD 2026-09-10 off-peak price mismatch')
 console.log('2026-09-10 flash price update & deepseek-v4-flash-vision-exp tests passed')
+
+// 10. 会话花费按每条 usage 事件发生时的峰/谷时段分档计价 (跨 12:00/18:00 不被整体重定价)
+const tiered = makeCostProjection({ currency: 'CNY', prices: {}, pricesOffPeak: {} })
+let tieredState = tiered.init()
+tieredState = tiered.apply(tieredState, {
+  type: 'request/context',
+  time: Date.UTC(2026, 10, 17, 6, 20, 0),
+  data: { model: 'deepseek-v4-flash' },
+})
+// 2026-11-17 14:30 BJT (峰时): 1000 未命中 + 1000 输出
+tieredState = tiered.apply(tieredState, {
+  type: 'assistant/message',
+  time: Date.UTC(2026, 10, 17, 6, 30, 0),
+  data: { turn: 0, step: 0, message: {}, usage: { inputTokens: 1000, outputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+})
+// 2026-11-17 19:30 BJT (谷时): 1000 未命中 + 1000 输出
+tieredState = tiered.apply(tieredState, {
+  type: 'assistant/message',
+  time: Date.UTC(2026, 10, 17, 11, 30, 0),
+  data: { turn: 0, step: 1, message: {}, usage: { inputTokens: 1000, outputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+})
+const tieredView = tiered.wire.view(tieredState)
+tiered.wire.viewSchema.parse(tieredView)
+// 峰时 (1000*2 + 1000*8)/1e6 = 0.010; 谷时 (1000*1 + 1000*4)/1e6 = 0.005; 合计 0.015
+assert.equal(tieredView.costByModel['deepseek-v4-flash'], 0.015, 'peak and off-peak samples must be priced with their own tier')
+assert.equal(tieredView.cost, 0.015)
+assert.equal(tieredView.tokensByModel['deepseek-v4-flash'].uncachedInputTokens, 2000, 'tokensByModel must stay flat on the wire')
+assert.equal(tieredView.tokens.uncachedInput, 2000)
+assert.equal(tieredView.tokens.output, 2000)
+
+// 同一 (turn, step) 被替换时, 只能替换同一时段内的样本
+tieredState = tiered.apply(tieredState, {
+  type: 'assistant/message',
+  time: Date.UTC(2026, 10, 17, 11, 31, 0),
+  data: { turn: 0, step: 1, message: {}, usage: { inputTokens: 500, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+})
+const replacedView = tiered.wire.view(tieredState)
+// 峰时 0.010 + 谷时 (500*1)/1e6 = 0.0005 -> 0.0105
+assert.equal(replacedView.cost, 0.0105, 'replacement must only subtract the matching tier bucket')
+console.log('Per-tier session cost folding tests passed')
 
 console.log('PROJECTION TEST PASSED')
