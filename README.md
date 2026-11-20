@@ -276,9 +276,16 @@ A: 根据 DeepSeek 官方 2026 年 9 月 10 日最新公告与文档：
 
 ## 📝 更新日志 (Changelog)
 
-### 未发布 (Unreleased)
+### v0.2.8 (2026-11-20)
 
-- 🌐 **新增「显示时区」设置**：
+- 🐛 **会话花费按事件发生时刻的峰/谷时段分档计价 ([#10](https://github.com/TwotwoPiggy/dsh-balance/pull/10), thanks [@stavultras](https://github.com/stavultras))**：
+  - 修复此前在 `view()` 渲染时使用当前时刻单价统一重算整个会话全部历史 token 的问题（跨越 12:00 / 14:00 / 18:00 不会再导致历史消耗被整体翻倍或折半）；
+  - 投影折叠按每条 usage 事件的持久化时间戳 `time` 分别累计 `peak` 与 `offPeak` 用量，并在同一 `(turn, step)` 样本替换时仅扣减对应时段 bucket；
+  - 新增 `resolveModelPriceForTier` 导出，`wire.view` 保持 `tokensByModel` 扁平结构兼容，并将 `stateVersion` 升级至 `2`（主包与 `dsh-balance-lite` 同步更新）。
+- 🐛 **支持官方主模型 ID `deepseek-flash` 按 Flash 费率计价 ([#9](https://github.com/TwotwoPiggy/dsh-balance/pull/9), thanks [@stavultras](https://github.com/stavultras))**：
+  - 新增 `FLASH_MODEL_IDS` 并将官方模型名 `deepseek-flash`（DeepSeek-V4.1-Flash）纳入 Flash 系列费率识别，避免回退至 `defaultPrices` 导致高缓存命中会话费用被高估；
+  - 服务端下发单价表、客户端默认价格与 `?` 定价卡片以及 `dsh-balance-lite` 精简包全量同步。
+- 🌐 **新增「显示时区」设置 ([#8](https://github.com/TwotwoPiggy/dsh-balance/pull/8), thanks [@stavultras](https://github.com/stavultras))**：
   - 设置面板「常规与阈值」新增时区输入框（IANA 名称，带常用时区候选、非法值提示与当前时刻预览），`cordis.patch.yml` 同步支持 `timezone` 配置项；
   - `?` 定价卡片在展示时区与计费时区不同时，额外按所选时区换算峰时窗口（跨日标注「前一日/次日」）；
   - **计费判定与展示时区解耦**：`isPeakTime` / `resolveModelPrice` 仍严格锚定北京时间，切换时区不改变峰谷计费与会话消耗估算；
