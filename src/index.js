@@ -206,9 +206,19 @@ export const resolveModelPrice = (configOrGetter, model, timestamp = Date.now())
   const ts = typeof timestamp === 'number'
     ? timestamp
     : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
-
   // 1. 北京时间 (UTC+8) 峰时段: 周一至周五 09:00~12:00, 14:00~18:00; 其余时段 (含周末全天) 为谷时特惠 (5折)
-  const isPeak = isPeakTime(ts)
+  return resolveModelPriceForTier(config, model, isPeakTime(ts), ts)
+}
+
+/**
+ * 按显式峰/谷时段取价(不再从时间戳推断时段), 供会话花费投影按每条 usage
+ * 事件发生时的时段分档计价。`timestamp` 仍用于 2026-09-10 调价分水岭回溯。
+ */
+export const resolveModelPriceForTier = (configOrGetter, model, isPeak, timestamp = Date.now()) => {
+  const config = typeof configOrGetter === 'function' ? configOrGetter() : configOrGetter
+  const ts = typeof timestamp === 'number'
+    ? timestamp
+    : (timestamp instanceof Date ? timestamp.getTime() : Date.now())
 
   if (isPeak) {
     if (config?.prices && Object.prototype.hasOwnProperty.call(config.prices, model) && config.prices[model]) {
@@ -281,27 +291,27 @@ export const makeCostProjection = (configOrGetter) => {
     cacheWriteTokens: a.cacheWriteTokens - b.cacheWriteTokens,
     outputTokens: a.outputTokens - b.outputTokens,
   })
-  const priceOf = (model) => resolveModelPrice(getConfig(), model)
   const round6 = (n) => Math.round(n * 1e6) / 1e6
 
+  const bucketSchema = z.object({
+    uncachedInputTokens: z.number().int(),
+    cacheReadTokens: z.number().int(),
+    cacheWriteTokens: z.number().int(),
+    outputTokens: z.number().int(),
+  })
+  const tiersOf = (entry) => ({ peak: entry?.peak ?? zero(), offPeak: entry?.offPeak ?? zero() })
   const stateSchema = z.object({
     currentModel: z.string().nullable(),
     last: z.object({
       turn: z.number().int(),
       step: z.number().int(),
       model: z.string(),
-      buckets: z.object({
-        uncachedInputTokens: z.number().int(),
-        cacheReadTokens: z.number().int(),
-        cacheWriteTokens: z.number().int(),
-        outputTokens: z.number().int(),
-      }),
+      tier: z.enum(['peak', 'offPeak']),
+      buckets: bucketSchema,
     }).nullable(),
     byModel: z.record(z.string(), z.object({
-      uncachedInputTokens: z.number().int(),
-      cacheReadTokens: z.number().int(),
-      cacheWriteTokens: z.number().int(),
-      outputTokens: z.number().int(),
+      peak: bucketSchema,
+      offPeak: bucketSchema,
     })),
     modelOrder: z.array(z.string()),
   })
@@ -327,20 +337,27 @@ export const makeCostProjection = (configOrGetter) => {
 
   const view = (state) => {
     const cfg = getConfig()
+    const now = Date.now()
     const tokens = { uncachedInput: 0, cacheRead: 0, cacheWrite: 0, output: 0 }
     const costByModel = {}
+    const tokensByModel = {}
     let cost = 0
     for (const model of state.modelOrder) {
-      const b = state.byModel[model] ?? zero()
+      const tiers = tiersOf(state.byModel[model])
+      // DeepSeek 计费: 未命中输入(含缓存写入)按 miss 价, 命中按 hit 价, 输出按 output 价。
+      // 配置价是"每 1M token"的价格, 因此除以 1e6。
+      const costOf = (b, rate) => ((b.uncachedInputTokens + b.cacheWriteTokens) * rate.cacheMiss +
+        b.cacheReadTokens * rate.cacheHit +
+        b.outputTokens * rate.output) / 1e6
+      // 按每条 usage 事件发生时的峰/谷时段分别计价: 跨 12:00/18:00 的会话不会再被整体重定价。
+      const c = costOf(tiers.peak, resolveModelPriceForTier(cfg, model, true, now)) +
+        costOf(tiers.offPeak, resolveModelPriceForTier(cfg, model, false, now))
+      const b = addBuckets(tiers.peak, tiers.offPeak)
       tokens.uncachedInput += b.uncachedInputTokens
       tokens.cacheRead += b.cacheReadTokens
       tokens.cacheWrite += b.cacheWriteTokens
       tokens.output += b.outputTokens
-      // DeepSeek 计费: 未命中输入(含缓存写入)按 miss 价, 命中按 hit 价, 输出按 output 价。
-      // 配置价是"每 1M token"的价格, 因此除以 1e6。
-      const c = ((b.uncachedInputTokens + b.cacheWriteTokens) * priceOf(model).cacheMiss +
-        b.cacheReadTokens * priceOf(model).cacheHit +
-        b.outputTokens * priceOf(model).output) / 1e6
+      tokensByModel[model] = b
       if (c > 0) costByModel[model] = round6(c)
       cost += c
     }
@@ -349,7 +366,7 @@ export const makeCostProjection = (configOrGetter) => {
       cost: round6(cost),
       costByModel,
       tokens,
-      tokensByModel: state.byModel,
+      tokensByModel,
       currency: cfg.currency,
     }
   }
@@ -378,21 +395,28 @@ export const makeCostProjection = (configOrGetter) => {
     }
     const model = nextModel ?? 'unknown'
     const buckets = bucketsOf(usage)
+    // 事件自带的 durable `time` 决定这一笔用量落在峰时还是谷时; 缺失时退化为当前时刻。
+    const tier = isPeakTime(typeof event.time === 'number' ? event.time : Date.now()) ? 'peak' : 'offPeak'
     const previous = state.last !== null && state.last.turn === turn && state.last.step === step ? state.last : null
-    if (previous !== null && previous.model === model && bucketsEqual(previous.buckets, buckets)) {
+    if (previous !== null && previous.model === model && previous.tier === tier && bucketsEqual(previous.buckets, buckets)) {
       return nextModel === state.currentModel ? state : { ...state, currentModel: nextModel }
     }
     const isNewModel = !(model in state.byModel)
     let byModel = state.byModel
     if (previous !== null) {
       // 同一步骤的替换样本: 先减去旧归属, 再加新归属。
-      byModel = { ...byModel, [previous.model]: subBuckets(byModel[previous.model] ?? zero(), previous.buckets) }
+      const prevTiers = tiersOf(byModel[previous.model])
+      byModel = {
+        ...byModel,
+        [previous.model]: { ...prevTiers, [previous.tier]: subBuckets(prevTiers[previous.tier], previous.buckets) },
+      }
     }
-    byModel = { ...byModel, [model]: addBuckets(byModel[model] ?? zero(), buckets) }
+    const tiers = tiersOf(byModel[model])
+    byModel = { ...byModel, [model]: { ...tiers, [tier]: addBuckets(tiers[tier], buckets) } }
     return {
       ...state,
       currentModel: nextModel,
-      last: { turn, step, model, buckets },
+      last: { turn, step, model, tier, buckets },
       byModel,
       modelOrder: isNewModel ? [...state.modelOrder, model] : state.modelOrder,
     }
@@ -410,7 +434,7 @@ export const makeCostProjection = (configOrGetter) => {
     // 向后兼容内部测试与旧调用
     view,
     schema: viewSchema,
-    stateVersion: 1,
+    stateVersion: 2,
   }
 }
 
