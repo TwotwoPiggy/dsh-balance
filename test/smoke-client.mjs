@@ -148,6 +148,7 @@ globalThis.fetch = async () => ({
       { currency: 'CNY', total: mockBalanceTotal, granted: 0, toppedUp: mockBalanceTotal },
     ],
     prices: {
+      'deepseek-flash': { cacheHit: 0.04, cacheMiss: 2, output: 8 },
       'deepseek-v4-flash': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
       'deepseek-v4-flash-vision-exp': { cacheHit: 0.1, cacheMiss: 3, output: 9 },
       'deepseek-v4-pro': { cacheHit: 0.3, cacheMiss: 9, output: 27 },
@@ -243,6 +244,7 @@ if (!htmlGreen.includes('dshqb_pricing_wrap')) throw new Error('pricing wrap mis
 if (!htmlGreen.includes('dshqb_pricing_popover')) throw new Error('pricing popover missing')
 if (!htmlGreen.includes('📋 DeepSeek V4 定价参考')) throw new Error('v4 pricing title missing')
 if (!htmlGreen.includes('deepseek-v4-flash')) throw new Error('v4 flash model missing')
+if (!htmlGreen.includes('• deepseek-flash')) throw new Error('official deepseek-flash model missing from pricing card')
 if (!htmlGreen.includes('deepseek-v4-flash-vision-exp')) throw new Error('v4 flash vision exp model missing')
 if (!htmlGreen.includes('deepseek-v4-pro')) throw new Error('v4 pro model missing')
 if (!htmlGreen.includes('命中 ¥0.1')) throw new Error('v4 hit rate missing')

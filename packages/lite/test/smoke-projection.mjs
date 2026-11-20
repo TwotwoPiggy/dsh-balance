@@ -3,7 +3,7 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection, resolveModelPrice, isPeakTime } from '../src/index.js'
+import { makeCostProjection, resolveModelPrice, isPeakTime, isFlashSeriesModel } from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -173,5 +173,14 @@ assert.deepEqual(usdNewPeakFlash, { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2
 
 const usdNewOffPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
 assert.deepEqual(usdNewOffPeakFlash, { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 }, 'USD 2026-09-10 off-peak price mismatch')
+
+// 官方新模型名 deepseek-flash 同样必须命中 Flash 费率
+assert.equal(isFlashSeriesModel('deepseek-flash'), true)
+assert.deepEqual(
+  resolveModelPrice({ currency: 'CNY', prices: {}, pricesOffPeak: {}, defaultPrices: { cacheHit: 9, cacheMiss: 9, output: 9 } }, 'deepseek-flash', peakTime),
+  { cacheHit: 0.1, cacheMiss: 3, output: 9 },
+  'lite: deepseek-flash must use the historic Flash peak rates',
+)
+console.log('LITE deepseek-flash pricing test passed')
 
 console.log('LITE PROJECTION TEST PASSED')

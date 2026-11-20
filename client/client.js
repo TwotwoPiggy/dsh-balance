@@ -463,11 +463,13 @@ window.__ModuleLoader__.load({
 		const DEFAULT_PRICES_BY_CURRENCY = {
 			CNY: {
 				peak: {
+					"deepseek-flash": { cacheHit: 0.04, cacheMiss: 2, output: 8 },
 					"deepseek-v4-flash": { cacheHit: 0.04, cacheMiss: 2, output: 8 },
 					"deepseek-v4-flash-vision-exp": { cacheHit: 0.04, cacheMiss: 2, output: 8 },
 					"deepseek-v4-pro": { cacheHit: 0.3, cacheMiss: 9, output: 27 }
 				},
 				offPeak: {
+					"deepseek-flash": { cacheHit: 0.02, cacheMiss: 1, output: 4 },
 					"deepseek-v4-flash": { cacheHit: 0.02, cacheMiss: 1, output: 4 },
 					"deepseek-v4-flash-vision-exp": { cacheHit: 0.02, cacheMiss: 1, output: 4 },
 					"deepseek-v4-pro": { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
@@ -475,11 +477,13 @@ window.__ModuleLoader__.load({
 			},
 			USD: {
 				peak: {
+					"deepseek-flash": { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
 					"deepseek-v4-flash": { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
 					"deepseek-v4-flash-vision-exp": { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2 },
 					"deepseek-v4-pro": { cacheHit: 0.044, cacheMiss: 1.32, output: 3.96 }
 				},
 				offPeak: {
+					"deepseek-flash": { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
 					"deepseek-v4-flash": { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
 					"deepseek-v4-flash-vision-exp": { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 },
 					"deepseek-v4-pro": { cacheHit: 0.022, cacheMiss: 0.66, output: 1.98 }
@@ -1524,9 +1528,10 @@ window.__ModuleLoader__.load({
 				]);
 				const badgeClass = isPeak ? "dshqb_card_badge_warning" : "dshqb_card_badge_success";
 				
-				const v4Entries = Object.entries(prices).filter(([model]) =>
-					model.toLowerCase().includes("v4")
-				);
+				const v4Entries = Object.entries(prices).filter(([model]) => {
+					const id = model.toLowerCase();
+					return id.includes("v4") || id === "deepseek-flash";
+				});
 				const entriesToShow = v4Entries.length > 0 ? v4Entries : Object.entries(prices);
 
 				const pricingPopover = react.createElement("div", {

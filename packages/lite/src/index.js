@@ -145,14 +145,17 @@ export const V4_RATES = {
   },
 }
 
-/** 判定模型是否属于 DeepSeek Flash 系列 (含 flash-vision-exp、v4.1-flash) */
+/** 官方 Flash 系列模型 id 列表 (`deepseek-flash` 为 2026 年后的官方主名)。 */
+export const FLASH_MODEL_IDS = [
+  'deepseek-flash',
+  'deepseek-v4-flash',
+  'deepseek-v4-flash-vision-exp',
+  'deepseek-v4.1-flash',
+]
+
 export const isFlashSeriesModel = (model) => {
   if (typeof model !== 'string') return false
-  return (
-    model === 'deepseek-v4-flash' ||
-    model === 'deepseek-v4-flash-vision-exp' ||
-    model === 'deepseek-v4.1-flash'
-  )
+  return FLASH_MODEL_IDS.includes(model)
 }
 
 /**
