@@ -7,6 +7,7 @@
 #       dangerThreshold: 5             # 余额告急阈值(低于此值显示红色)
 #       refreshIntervalMs: 120000      # 服务器向 DeepSeek 查询余额的频率(单位: 毫秒 ms，120000ms = 2分钟)
 #       clientPollIntervalMs: 15000    # 浏览器刷新显示的频率(单位: 毫秒 ms，15000ms = 15秒)
+#       timezone: Europe/Moscow        # 峰谷时段展示时区(IANA 名称); 仅影响文案, 计费判定始终按北京时间
 - insert:
     - id: dsh-balance
       name: dsh-balance

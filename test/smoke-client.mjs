@@ -141,6 +141,12 @@ globalThis.fetch = async () => ({
     refreshIntervalMs: 300000,
     clientPollIntervalMs: 30000,
     currency: 'CNY',
+    timezone: 'Europe/Moscow',
+    billingTimezone: 'Asia/Shanghai',
+    peakWindows: [
+      { start: '04:00', end: '07:00', dayOffset: 0 },
+      { start: '09:00', end: '13:00', dayOffset: 0 },
+    ],
     thresholds: { warning: 10, danger: 5 },
     isAvailable: mockIsAvailable,
     balances: [
@@ -191,6 +197,10 @@ const props = {
       'pricing.scheduleOtherPrefix': '· 其余时段 (含周末) 为 ',
       'pricing.scheduleOffPeak': '(5折特惠)',
       'pricing.scheduleHint': '· ☀️ 周一至周五 09:00~12:00 / 14:00~18:00 (100%)\n· 其余时段 (含周末) 为 🌙 (5折特惠)',
+      'pricing.scheduleBillingNote': '(北京时间)',
+      'pricing.scheduleYourZone': '· 你的时区 ({tz})：{windows}',
+      'pricing.dayPrevious': '前一日 ',
+      'pricing.dayNext': '次日 ',
       'pricing.hit': '命中 {price}',
       'pricing.miss': '未命中 {price}',
       'pricing.output': '输出 {price}',
@@ -252,6 +262,14 @@ if (!htmlGreen.includes('未命中 ¥3')) throw new Error('v4 miss rate missing'
 if (!htmlGreen.includes('输出 ¥9')) throw new Error('v4 output rate missing')
 // 验证非 V4 模型被成功过滤不展示在定价气泡中
 if (htmlGreen.includes('• deepseek-chat</span><div class="dshqb_pricing_rates"')) throw new Error('non-v4 model should be filtered out')
+// 展示时区: 北京时间的峰时窗口换算成 Europe/Moscow 后应出现在定价卡片中
+if (!htmlGreen.includes('你的时区 (Europe/Moscow)')) throw new Error('display timezone schedule line missing')
+if (!htmlGreen.includes('04:00~07:00')) throw new Error('converted peak window missing')
+if (!htmlGreen.includes('09:00~13:00')) throw new Error('converted second peak window missing')
+// 行序: 谷时行必须在时区峰时窗口之后, 否则紧邻的时间区间会被误读为谷时
+if (htmlGreen.indexOf('你的时区 (Europe/Moscow)') > htmlGreen.indexOf('其余时段')) {
+  throw new Error('display timezone line must precede the off-peak line')
+}
 
 // 验证设置按钮存在
 if (!htmlGreen.includes('title="插件设置"')) throw new Error('settings button title missing')

@@ -122,6 +122,9 @@ async function runTests() {
   assert.equal(resGetConfig.data.config.warningThreshold, 10)
   assert.equal(resGetConfig.data.config.dangerThreshold, 5)
   assert.equal(resGetConfig.data.config.currency, 'CNY')
+  assert.equal(resGetConfig.data.config.timezone, 'Asia/Shanghai', 'timezone should default to the billing timezone')
+  assert.equal(resGetConfig.data.config.billingTimezone, 'Asia/Shanghai')
+  assert.equal(resGetConfig.data.config.peakWindows.length, 2)
   console.log('GET /query-balance/config passed')
 
   // 2. POST /query-balance/config 修改阈值与单价
@@ -145,6 +148,26 @@ async function runTests() {
   assert.ok(resPostConfig.data.config.prices['deepseek-v4-flash'], 'flash price exists')
   assert.equal(resPostConfig.data.config.prices['deepseek-v4-flash'].cacheHit, 0.02)
   console.log('POST /query-balance/config passed (including model deletion and multi-currency thresholds test)')
+
+  // 2b. 展示时区: 大小写归一化、序列化下发、非法值拒绝且不覆盖旧值
+  const resTzSet = await invokeRoute('/query-balance/config', 'POST', { timezone: 'europe/moscow' })
+  assert.equal(resTzSet.status, 200)
+  assert.equal(resTzSet.data.config.timezone, 'Europe/Moscow', 'timezone should be normalized to the Intl canonical name')
+  assert.equal(resTzSet.data.config.billingTimezone, 'Asia/Shanghai')
+  assert.deepEqual(resTzSet.data.config.peakWindows.map((w) => w.start), ['04:00', '09:00'], 'Moscow peak windows should be converted')
+
+  const resTzCache = await invokeRoute('/query-balance', 'GET')
+  assert.equal(resTzCache.data.timezone, 'Europe/Moscow')
+  assert.equal(resTzCache.data.billingTimezone, 'Asia/Shanghai')
+  assert.equal(resTzCache.data.peakWindows.length, 2)
+
+  const resTzInvalid = await invokeRoute('/query-balance/config', 'POST', { timezone: 'Mars/Olympus' })
+  assert.equal(resTzInvalid.status, 400)
+  assert.equal(resTzInvalid.data.ok, false)
+  assert.equal(resTzInvalid.data.error, 'invalid-timezone')
+  const resTzAfterInvalid = await invokeRoute('/query-balance/config', 'GET')
+  assert.equal(resTzAfterInvalid.data.config.timezone, 'Europe/Moscow', 'invalid timezone must not overwrite the stored value')
+  console.log('Display timezone config tests passed')
 
   // 3. 验证动态配置生效到会话花费投影
   if (mockCtx._projection) {

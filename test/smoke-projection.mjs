@@ -3,7 +3,15 @@
  * 同步骤替换语义、模型归属、花费计算与 schema 校验。
  * 运行: node test/smoke-projection.mjs
  */
-import { makeCostProjection, resolveModelPrice, isPeakTime, isFlashSeriesModel } from '../src/index.js'
+import {
+  makeCostProjection,
+  resolveModelPrice,
+  isPeakTime,
+  isFlashSeriesModel,
+  isValidTimeZone,
+  normalizeTimeZone,
+  peakWindowsForTimeZone,
+} from '../src/index.js'
 import assert from 'node:assert/strict'
 
 const config = {
@@ -209,6 +217,44 @@ assert.deepEqual(usdNewPeakFlash, { cacheHit: 0.006, cacheMiss: 0.3, output: 1.2
 const usdNewOffPeakFlash = resolveModelPrice(usdConfig, 'deepseek-v4-flash-vision-exp', postSept10OffPeakTime)
 assert.deepEqual(usdNewOffPeakFlash, { cacheHit: 0.003, cacheMiss: 0.15, output: 0.6 }, 'USD 2026-09-10 off-peak price mismatch')
 console.log('2026-09-10 flash price update & deepseek-v4-flash-vision-exp tests passed')
+
+// 8. 展示时区: 峰谷判定恒定按北京时间, 高峰窗口按展示时区换算 (Issue: timezone setting)
+const billingPeak = new Date('2026-09-15T02:00:00Z').getTime() // 周二 10:00 BJT -> 峰时
+assert.equal(isValidTimeZone('UTC'), true)
+assert.equal(isValidTimeZone('Europe/Moscow'), true)
+assert.equal(isValidTimeZone('Mars/Olympus'), false)
+assert.equal(isValidTimeZone(''), false)
+assert.equal(isValidTimeZone(undefined), false)
+assert.equal(normalizeTimeZone('europe/moscow'), 'Europe/Moscow', 'Intl canonical name expected')
+assert.equal(normalizeTimeZone('Mars/Olympus'), 'Asia/Shanghai', 'invalid timezone falls back to billing timezone')
+assert.equal(normalizeTimeZone(undefined), 'Asia/Shanghai', 'missing timezone falls back to billing timezone')
+
+assert.deepEqual(peakWindowsForTimeZone('Asia/Shanghai', billingPeak), [
+  { start: '09:00', end: '12:00', dayOffset: 0 },
+  { start: '14:00', end: '18:00', dayOffset: 0 },
+])
+assert.deepEqual(peakWindowsForTimeZone('Europe/Moscow', billingPeak), [
+  { start: '04:00', end: '07:00', dayOffset: 0 },
+  { start: '09:00', end: '13:00', dayOffset: 0 },
+], 'Moscow windows should be BJT-5h')
+assert.deepEqual(peakWindowsForTimeZone('America/New_York', billingPeak), [
+  { start: '21:00', end: '00:00', dayOffset: -1 },
+  { start: '02:00', end: '06:00', dayOffset: 0 },
+], 'New York windows should shift to the previous day (EDT)')
+assert.deepEqual(peakWindowsForTimeZone('Pacific/Kiritimati', billingPeak), [
+  { start: '15:00', end: '18:00', dayOffset: 0 },
+  { start: '20:00', end: '00:00', dayOffset: 0 },
+], 'Kiritimati (+14) windows shift into the afternoon')
+
+// 展示时区不得影响计费判定: 配置 timezone 为纽约, 北京时间峰时仍按峰时计价
+const displayTzConfig = { currency: 'CNY', prices: {}, timezone: 'America/New_York' }
+assert.deepEqual(
+  resolveModelPrice(displayTzConfig, 'deepseek-v4-flash', billingPeak),
+  { cacheHit: 0.04, cacheMiss: 2, output: 8 },
+  'Billing must stay anchored to Beijing time regardless of display timezone',
+)
+assert.equal(isPeakTime(billingPeak), true)
+console.log('Display timezone conversion and billing-anchor tests passed')
 
 // 9. 官方新模型名 deepseek-flash: 必须按 Flash 系列费率计价, 不得回退到 defaultPrices
 assert.equal(isFlashSeriesModel('deepseek-flash'), true, 'deepseek-flash is the official Flash model id')
