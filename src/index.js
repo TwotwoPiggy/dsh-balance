@@ -945,8 +945,15 @@ export function apply(ctx, config) {
         }
         try {
           const body = await readJsonBody(req)
-          const targetUrl = (typeof body.baseUrl === 'string' && body.baseUrl.trim() ? body.baseUrl.trim() : runtimeConfig.baseUrl).replace(/\/+$/, '')
-          const key = await resolveKey(typeof body.apiKey === 'string' && body.apiKey ? body.apiKey.trim() : null)
+          const customBaseUrl = typeof body.baseUrl === 'string' && body.baseUrl.trim() ? body.baseUrl.trim() : null
+          const explicitApiKey = typeof body.apiKey === 'string' && body.apiKey ? body.apiKey.trim() : null
+          // 防止将服务端保存/环境变量中的凭据发送到用户指定的任意目标地址 (SSRF/凭据泄露)
+          if (customBaseUrl && customBaseUrl.replace(/\/+$/, '') !== runtimeConfig.baseUrl.replace(/\/+$/, '') && !explicitApiKey) {
+            sendJson(res, 400, { ok: false, error: 'api-key-required-for-custom-baseurl' })
+            return
+          }
+          const targetUrl = (customBaseUrl || runtimeConfig.baseUrl).replace(/\/+$/, '')
+          const key = await resolveKey(explicitApiKey)
           if (!key) {
             sendJson(res, 400, { ok: false, error: 'api-key-missing' })
             return
