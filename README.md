@@ -276,6 +276,14 @@ A: 根据 DeepSeek 官方 2026 年 9 月 10 日最新公告与文档：
 
 ## 📝 更新日志 (Changelog)
 
+### v0.2.9 (2026-11-21)
+
+- 🔒 **连接测试接口凭据泄露防护 ([#11](https://github.com/TwotwoPiggy/dsh-balance/pull/11), thanks [@anupam-orbisai](https://github.com/anupam-orbisai))**：
+  - 在 `POST /query-balance/test-connection` 中增加目标地址校验：当请求传入的 `baseUrl` 与当前已配置的 `runtimeConfig.baseUrl` 不同时，必须同时显式提供 `apiKey`，否则返回 `400 api-key-required-for-custom-baseurl`；
+  - 防止将服务端已保存或环境变量中的 `DEEPSEEK_API_KEY` 凭据发送至未授权的自定义目标地址（CWE-918 纵深防御），并补充专项单元测试。
+
+---
+
 ### v0.2.8 (2026-11-20)
 
 - 🐛 **会话花费按事件发生时刻的峰/谷时段分档计价 ([#10](https://github.com/TwotwoPiggy/dsh-balance/pull/10), thanks [@stavultras](https://github.com/stavultras))**：
