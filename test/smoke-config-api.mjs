@@ -338,8 +338,25 @@ async function runTests() {
   assert.equal(resFreshGet.config.thresholds.CNY.danger, 5, 'Initial apply deep merge must retain danger: 5')
   console.log('Initial apply thresholds deep merge passed (Bug 3 init verified)')
 
-  // 10. 验证 /query-balance/test-connection 路由注册
+  // 10. 验证 /query-balance/test-connection 路由注册与自定义 baseUrl 凭据泄露防护 (PR #11 / CWE-918)
   assert.ok(routes.has('/query-balance/test-connection'), 'test-connection route should be registered')
+  const resTestConnCustomUrlNoKey = await invokeRoute('/query-balance/test-connection', 'POST', {
+    baseUrl: 'https://untrusted-proxy.example.com/',
+  })
+  assert.equal(resTestConnCustomUrlNoKey.status, 400)
+  assert.equal(resTestConnCustomUrlNoKey.data.ok, false)
+  assert.equal(
+    resTestConnCustomUrlNoKey.data.error,
+    'api-key-required-for-custom-baseurl',
+    'custom baseUrl without explicit apiKey must be rejected to prevent credential exfiltration',
+  )
+  const resTestConnBlankKey = await invokeRoute('/query-balance/test-connection', 'POST', {
+    baseUrl: 'https://untrusted-proxy.example.com',
+    apiKey: '   ',
+  })
+  assert.equal(resTestConnBlankKey.status, 400)
+  assert.equal(resTestConnBlankKey.data.error, 'api-key-required-for-custom-baseurl')
+  console.log('test-connection custom baseUrl credential guard passed (PR #11 verified)')
 
   console.log('ALL CONFIG API TESTS PASSED')
   process.exit(0)
